@@ -1,0 +1,1766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Corivance · Talent</title>
+
+<!-- ===================================================================== -->
+<!--  CONFIG — paste your Supabase details here (see README, step 5)       -->
+<!--  Both values are safe in client-side code; RLS + Auth protect data.   -->
+<!-- ===================================================================== -->
+<script>
+  window.SUPABASE_URL      = "https://vkybmqlinhvvgxeveoye.supabase.co";
+  window.SUPABASE_ANON_KEY = "sb_publishable_5AJ1LlnSl3eeXoddmIDK-w_Z8P-y9jg";
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // ===================================================================
+  //  CORIVANCE SARVAM — brand palette (single source of truth).
+  //  base white/black · deep green #0D3123 (primary) · lime #D8FF80 (accent).
+  //  Roles: text=ink, primary=brand(green), highlight/selected=accent(lime),
+  //  background=paper, surface=card. Logo mark embedded as ICON_URI.
+  // ===================================================================
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink:   '#16201B',   // text (near-black)
+          muted: '#5E6B64',   // secondary text
+          line:  '#E2E7E3',   // borders / dividers
+          paper: '#F2F5F2',   // background
+          card:  '#FFFFFF',   // surface
+          brand: { DEFAULT: '#0D3123', soft: '#E4ECE7' },          // deep green + tint
+          accent:{ DEFAULT: '#D8FF80', soft: '#F0FBD2', ink: '#0D3123' }, // lime
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style type="text/tailwindcss">
+  @layer components {
+    .inp  { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-muted/60 focus:border-brand focus:ring-2 focus:ring-brand/15; }
+    .lbl  { @apply block text-[11px] font-semibold uppercase tracking-wide text-muted mb-1; }
+    .btn  { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition select-none disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn-primary { @apply btn bg-brand text-white hover:brightness-110 active:scale-[.98]; }
+    .btn-accent  { @apply btn bg-accent text-[#0D3123] hover:brightness-95 active:scale-[.98]; }
+    .btn-ghost   { @apply btn border border-line bg-white text-ink hover:bg-paper; }
+    .btn-soft    { @apply btn bg-brand-soft text-brand hover:brightness-95; }
+    .btn-danger  { @apply btn border border-red-200 bg-white text-red-600 hover:bg-red-50; }
+    .card  { @apply rounded-xl border border-line/70 bg-card shadow-[0_1px_2px_rgba(22,22,20,0.04),0_1px_3px_rgba(22,22,20,0.05)]; }
+    .chip  { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium; }
+    .seg   { @apply rounded-md px-3 py-1.5 text-sm font-medium transition; }
+    .navlink { @apply flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition; }
+  }
+  html, body, #root { height: 100%; }
+  body { background: #F2F5F2; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #CBD3CD; border-radius: 99px; border: 2px solid #F2F5F2; }
+  ::-webkit-scrollbar-thumb:hover { background: #B4BFB6; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  [data-dragover="true"] { outline: 2px dashed #0D3123; outline-offset: -4px; background: #F0FBD2cc; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+ function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+const ICON_URI = "data:image/png;base64,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";
+
+/* ============================ Constants ============================ */
+const SUPABASE_URL = window.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "";
+const CONFIGURED = /^https?:\/\//.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 20;
+const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const STAGES = ["New","Reviewing","Test Offered","Test Submitted","Evaluated","Hired","Rejected","Archived"];
+const ACTIVE_STAGES = STAGES.slice(0, 6);      // pipeline flow
+const TERMINAL_STAGES = ["Rejected","Archived"];
+const STAGE_COLOR = {
+  "New":            "#234A6B",
+  "Reviewing":      "#0EA5E9",
+  "Test Offered":   "#F59E0B",
+  "Test Submitted": "#8B5CF6",
+  "Evaluated":      "#14B8A6",
+  "Hired":          "#0D3123",
+  "Rejected":       "#DC2626",
+  "Archived":       "#8A8178",
+};
+const COLLAB = ["Long-term","Project-based","Both"];
+const PAY_TYPES = ["Project-based","Single payment after completion"];
+const PROJECT_STATUS = ["Active","On hold","Completed"];
+const TEST_OPTS = ["Yes","No","Depends on task"];
+const SOURCES = ["Manual","Tally","Referral"];
+
+/* ============================ Helpers ============================ */
+const cx = (...a) => a.filter(Boolean).join(" ");
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}) : "";
+const fmtWhen = (d) => d ? new Date(d).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "";
+const arr = (v) => Array.isArray(v) ? v : [];
+const splitList = (s) => String(s||"").split(/[,;]+/).map(x=>x.trim()).filter(Boolean);
+const tri = (v) => v === true ? "Yes" : v === false ? "No" : "—";
+const checklistProgress = (f, items) => {
+  const total = items.length;
+  const ck = f.checklist || {};
+  const done = items.reduce((n,i)=> n + (ck[i.id] ? 1 : 0), 0);
+  return { done, total };
+};
+
+function hexA(hex, a){ // hex + alpha -> rgba
+  const n = parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+/* ============================ Tiny UI atoms ============================ */
+function StageChip({ stage, className }){
+  const c = STAGE_COLOR[stage] || "#6B7280";
+  return (
+    React.createElement('span', { className: cx("chip", className), style: {background:hexA(c,0.12), color:c},}
+      , React.createElement('span', { className: "h-1.5 w-1.5 rounded-full"  , style: {background:c},} )
+      , stage
+    )
+  );
+}
+function Tag({ children }){
+  return React.createElement('span', { className: "chip bg-paper text-muted font-mono"   ,}, children);
+}
+function Avatar({ name, size=36 }){
+  const initials = (name||"?").trim().split(/\s+/).slice(0,2).map(s=>s[0]||"").join("").toUpperCase() || "?";
+  return (
+    React.createElement('span', { className: "inline-flex shrink-0 items-center justify-center rounded-full bg-brand-soft font-semibold text-brand"       ,
+      style: { width:size, height:size, fontSize:size*0.38 }, 'aria-hidden': "true",}, initials)
+  );
+}
+function Stars({ value }){
+  if(!value) return React.createElement('span', { className: "text-muted text-xs" ,}, "—");
+  return React.createElement('span', { className: "text-amber-500 text-xs tracking-tight"  ,}, "★".repeat(value), React.createElement('span', { className: "text-line",}, "★".repeat(5-value)));
+}
+function Field({ label, children, hint }){
+  return (
+    React.createElement('label', { className: "block",}
+      , React.createElement('span', { className: "lbl",}, label)
+      , children
+      , hint && React.createElement('span', { className: "mt-1 block text-[11px] text-muted"   ,}, hint)
+    )
+  );
+}
+function Toggle({ on, onClick, children }){
+  return (
+    React.createElement('button', { type: "button", onClick: onClick,
+      className: cx("chip border transition", on ? "border-brand bg-brand-soft text-brand" : "border-line bg-white text-muted hover:border-muted/40"),}
+      , on && React.createElement('span', null, "✓"), children
+    )
+  );
+}
+
+function PageHeader({ title, subtitle, actions }){
+  return (
+    React.createElement('div', { className: "mb-5 flex flex-wrap items-center justify-between gap-3"     ,}
+      , React.createElement('div', { className: "flex items-start gap-2.5"  ,}
+        , React.createElement('img', { src: ICON_URI, alt: "", 'aria-hidden': "true", className: "mt-0.5 h-6 w-6 shrink-0"   , draggable: "false",} )
+        , React.createElement('div', null
+          , React.createElement('h1', { className: "text-2xl font-bold tracking-tight text-ink"   ,}, title)
+          , subtitle && React.createElement('p', { className: "mt-0.5 text-sm text-muted"  ,}, subtitle)
+        )
+      )
+      , actions && React.createElement('div', { className: "flex items-center gap-2"  ,}, actions)
+    )
+  );
+}
+function ChecklistPill({ f, items }){
+  if(!items.length) return null;
+  const { done, total } = checklistProgress(f, items);
+  const complete = done === total;
+  return (
+    React.createElement('span', { className: cx("chip font-mono", complete ? "bg-green-50 text-green-700" : "bg-paper text-muted"),
+      title: `${done} of ${total} checklist items done`,}
+      , React.createElement('span', null, complete ? "✓" : "☑"), done, "/", total
+    )
+  );
+}
+
+/* ============================ Modal shell ============================ */
+function Modal({ open, onClose, title, subtitle, children, footer, wide }){
+  useEffect(()=>{
+    if(!open) return;
+    const h = (e)=>{ if(e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    document.body.style.overflow = "hidden";
+    return ()=>{ window.removeEventListener("keydown", h); document.body.style.overflow = ""; };
+  },[open,onClose]);
+  if(!open) return null;
+  return (
+    React.createElement('div', { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 p-0 sm:p-4"         , onMouseDown: onClose,}
+      , React.createElement('div', { onMouseDown: (e)=>e.stopPropagation(),
+        className: cx("flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl bg-paper shadow-2xl", wide ? "sm:max-w-4xl" : "sm:max-w-2xl"),}
+        , React.createElement('div', { className: "flex items-start justify-between gap-3 border-b border-line bg-white px-5 py-4"        ,}
+          , React.createElement('div', { className: "min-w-0",}
+            , React.createElement('h2', { className: "truncate text-lg font-bold text-ink"   ,}, title)
+            , subtitle && React.createElement('p', { className: "truncate text-sm text-muted"  ,}, subtitle)
+          )
+          , React.createElement('button', { onClick: onClose, className: "rounded-lg p-1.5 text-muted hover:bg-paper"   , 'aria-label': "Close",}, "✕")
+        )
+        , React.createElement('div', { className: "flex-1 overflow-y-auto px-5 py-5"   ,}, children)
+        , footer && React.createElement('div', { className: "flex items-center justify-end gap-2 border-t border-line bg-white px-5 py-3"        ,}, footer)
+      )
+    )
+  );
+}
+
+/* ============================ Comment thread ============================ */
+function CommentThread({ items, onAdd, onDelete, placeholder }){
+  const [text,setText] = useState("");
+  const sorted = [...items].sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+  return (
+    React.createElement('div', null
+      , React.createElement('div', { className: "flex gap-2" ,}
+        , React.createElement('input', { className: "inp", placeholder: placeholder||"Add a comment…", value: text,
+          onChange: e=>setText(e.target.value),
+          onKeyDown: e=>{ if(e.key==="Enter" && text.trim()){ onAdd(text.trim()); setText(""); } },} )
+        , React.createElement('button', { className: "btn-soft shrink-0" , disabled: !text.trim(),
+          onClick: ()=>{ if(text.trim()){ onAdd(text.trim()); setText(""); } },}, "Post")
+      )
+      , React.createElement('div', { className: "mt-3 space-y-2" ,}
+        , sorted.length===0 && React.createElement('p', { className: "text-sm text-muted" ,}, "No comments yet."  )
+        , sorted.map(c=>(
+          React.createElement('div', { key: c.id, className: "group rounded-lg border border-line bg-white px-3 py-2"      ,}
+            , React.createElement('div', { className: "flex items-start justify-between gap-2"   ,}
+              , React.createElement('p', { className: "whitespace-pre-wrap text-sm text-ink"  ,}, c.body)
+              , React.createElement('button', { onClick: ()=>onDelete(c.id), className: "opacity-0 group-hover:opacity-100 text-muted hover:text-red-600 text-xs"    ,}, "delete")
+            )
+            , React.createElement('p', { className: "mt-1 font-mono text-[11px] text-muted"   ,}, fmtWhen(c.created_at))
+          )
+        ))
+      )
+    )
+  );
+}
+
+/* ============================ Login ============================ */
+function Login(){
+  const [email,setEmail] = useState("");
+  const [pw,setPw] = useState("");
+  const [err,setErr] = useState("");
+  const [busy,setBusy] = useState(false);
+  const submit = async () => {
+    setErr(""); setBusy(true);
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if(error) setErr(error.message);
+    setBusy(false);
+  };
+  return (
+    React.createElement('div', { className: "flex min-h-full items-center justify-center bg-paper p-6"     ,}
+      , React.createElement('div', { className: "w-full max-w-sm" ,}
+        , React.createElement('div', { className: "mb-7 flex flex-col items-center gap-3"    ,}
+          , React.createElement('img', { src: ICON_URI, alt: "Corivance", className: "h-12 w-12" , draggable: "false",} )
+          , React.createElement('div', { className: "text-xl font-bold tracking-tight text-ink"   ,}, "Corivance " , React.createElement('span', { className: "text-brand",}, "Sarvam"))
+        )
+        , React.createElement('div', { className: "card p-7" ,}
+          , React.createElement('h1', { className: "text-xl font-bold text-ink"  ,}, "Sign in" )
+          , React.createElement('p', { className: "mt-1 text-sm text-muted"  ,}, "Access the freelancer pipeline."   )
+          , React.createElement('div', { className: "mt-5 space-y-3" ,}
+            , React.createElement(Field, { label: "Email",}, React.createElement('input', { className: "inp", type: "email", value: email, autoComplete: "username",
+              onChange: e=>setEmail(e.target.value), onKeyDown: e=>e.key==="Enter"&&submit(),} ))
+            , React.createElement(Field, { label: "Password",}, React.createElement('input', { className: "inp", type: "password", value: pw, autoComplete: "current-password",
+              onChange: e=>setPw(e.target.value), onKeyDown: e=>e.key==="Enter"&&submit(),} ))
+            , err && React.createElement('p', { className: "rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"     ,}, err)
+            , React.createElement('button', { className: "btn-primary w-full" , onClick: submit, disabled: busy || !email || !pw,}
+              , busy ? "Signing in…" : "Sign in"
+            )
+          )
+        )
+        , React.createElement('p', { className: "mt-4 text-center text-[11px] text-muted/70"   ,}, "Corivance · internal use only"    )
+      )
+    )
+  );
+}
+
+/* ============================ Setup screen (no config) ============================ */
+function SetupScreen(){
+  return (
+    React.createElement('div', { className: "mx-auto max-w-2xl p-8"  ,}
+      , React.createElement('div', { className: "card p-7" ,}
+        , React.createElement('div', { className: "font-mono text-xs uppercase tracking-[0.2em] text-brand"    ,}, "Corivance · Talent"  )
+        , React.createElement('h1', { className: "mt-1 text-2xl font-bold text-ink"   ,}, "Finish setup" )
+        , React.createElement('p', { className: "mt-2 text-sm text-muted"  ,}, "This app needs a Supabase backend before it can run. Follow the README, then:"             )
+        , React.createElement('ol', { className: "mt-4 list-decimal space-y-2 pl-5 text-sm text-ink"     ,}
+          , React.createElement('li', null, "Create a free Supabase project."    )
+          , React.createElement('li', null, "Run " , React.createElement('code', { className: "rounded bg-paper px-1 font-mono"   ,}, "schema.sql"), " in the SQL editor."    )
+          , React.createElement('li', null, "Create your single login under Authentication → Users."       )
+          , React.createElement('li', null, "Open " , React.createElement('code', { className: "rounded bg-paper px-1 font-mono"   ,}, "index.html"), " and paste your Project URL + anon key into the CONFIG block near the top."               )
+        )
+        , React.createElement('p', { className: "mt-4 rounded-lg bg-brand-soft px-3 py-2 text-sm text-brand"      ,}, "Refresh this page after pasting your keys."      )
+      )
+    )
+  );
+}
+
+/* ============================ Multi-select work areas / specialties ============================ */
+function WorkAreaPicker({ value, subValue, onChange, onSubChange, workAreas, subSpecialties }){
+  const selected = arr(value);
+  const subs = subSpecialties.filter(s => selected.includes(s.work_area));
+  return (
+    React.createElement('div', { className: "space-y-3",}
+      , React.createElement('div', null
+        , React.createElement('span', { className: "lbl",}, "Work areas" )
+        , React.createElement('div', { className: "flex flex-wrap gap-1.5"  ,}
+          , workAreas.map(w=>(
+            React.createElement(Toggle, { key: w.id, on: selected.includes(w.name),
+              onClick: ()=>{
+                const next = selected.includes(w.name) ? selected.filter(x=>x!==w.name) : [...selected,w.name];
+                onChange(next);
+                onSubChange(arr(subValue).filter(s => subSpecialties.find(ss=>ss.name===s && next.includes(ss.work_area))));
+              },}, w.name)
+          ))
+          , workAreas.length===0 && React.createElement('span', { className: "text-xs text-muted" ,}, "Add work areas in Settings."    )
+        )
+      )
+      , subs.length>0 && (
+        React.createElement('div', null
+          , React.createElement('span', { className: "lbl",}, "Sub-specialties")
+          , React.createElement('div', { className: "flex flex-wrap gap-1.5"  ,}
+            , subs.map(s=>(
+              React.createElement(Toggle, { key: s.id, on: arr(subValue).includes(s.name),
+                onClick: ()=>{
+                  const cur = arr(subValue);
+                  onSubChange(cur.includes(s.name) ? cur.filter(x=>x!==s.name) : [...cur,s.name]);
+                },}
+                , React.createElement('span', { className: "text-muted",}, s.work_area.split(" ")[0], "·"), s.name
+              )
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ============================ Freelancer detail / editor ============================ */
+/* ============================ Full-page wrapper (for record pages) ============================ */
+function PageShell({ title, subtitle, onBack, actions, children, maxw="max-w-3xl" }){
+  return (
+    React.createElement('div', null
+      , React.createElement('div', { className: "mb-5 flex flex-wrap items-center gap-3"    ,}
+        , React.createElement('button', { className: "btn-ghost shrink-0" , onClick: onBack,}
+          , React.createElement('svg', { className: "h-4 w-4" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round",}, React.createElement('path', { d: "M15 18l-6-6 6-6"  ,})), "Back"
+
+        )
+        , React.createElement('div', { className: "min-w-0",}
+          , React.createElement('h1', { className: "truncate text-2xl font-bold tracking-tight text-ink"    ,}, title)
+          , subtitle && React.createElement('p', { className: "truncate text-sm text-muted"  ,}, subtitle)
+        )
+        , actions && React.createElement('div', { className: "ml-auto flex items-center gap-2"   ,}, actions)
+      )
+      , React.createElement('div', { className: cx("mx-auto", maxw),}, children)
+    )
+  );
+}
+
+function FreelancerDetail({ f, db, onBack }){
+  const isNew = !f.id;
+  const [d,setD] = useState(()=>({
+    full_name:"", email:"", phone:"", portfolio_link:"", work_areas:[], sub_specialties:[],
+    hours_per_week:"", collaboration_type:"", turnaround_time:"", design_tools:"",
+    ok_with_feedback:null, can_share_source:null, past_project_types:"", best_portfolio_projects:"",
+    willing_design_test:"", intake_notes:"", stage:"New", checklist:{}, quoted_rate:"", currency:"USD",
+    pay_type:"Project-based", payment_notes:"", rating:"", tags:[], source:"Manual", ...f,
+  }));
+  const set = (k,v)=> setD(p=>({...p,[k]:v}));
+  const [busy,setBusy] = useState(false);
+  const [showPricing,setShowPricing] = useState(!isNew);
+  const [showAssign,setShowAssign] = useState(false);
+  const comments = db.comments.filter(c=>c.freelancer_id===f.id);
+
+  const save = async (overrides={}) => {
+    setBusy(true);
+    const payload = {
+      ...d, ...overrides,
+      quoted_rate: d.quoted_rate==="" || d.quoted_rate==null ? null : Number(d.quoted_rate),
+      rating: d.rating==="" || d.rating==null ? null : Number(d.rating),
+    };
+    delete payload.id; delete payload.created_at; delete payload.updated_at;
+    const saved = await db.saveFreelancer(f.id, payload);
+    setBusy(false);
+    return saved;
+  };
+
+  const handleHire = async () => {
+    if(!d.stage || d.stage!=="Hired"){ set("stage","Hired"); }
+    await save({ stage:"Hired" });
+    setShowAssign(true);
+  };
+
+  return (
+    React.createElement(PageShell, { onBack: onBack,
+      title: isNew ? "Add prospect" : (d.full_name || "Freelancer"),
+      subtitle: isNew ? "New freelancer · matches the Tally intake form" : (d.email || ""),
+      actions: 
+        React.createElement(React.Fragment, null
+          , !isNew && React.createElement('button', { className: "btn-danger", onClick: async()=>{ if(confirm("Delete this freelancer permanently?")){ await db.deleteFreelancer(f.id); onBack(); } },}, "Delete")
+          , React.createElement('button', { className: "btn-primary", disabled: busy || !d.full_name.trim(), onClick: async()=>{ await save(); onBack(); },}, busy?"Saving…":"Save")
+        )
+      ,}
+
+      /* Pipeline + actions bar */
+      , !isNew && (
+        React.createElement('div', { className: "mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3"         ,}
+          , React.createElement('span', { className: "lbl mb-0" ,}, "Stage")
+          , React.createElement('select', { className: "inp max-w-[200px]" , value: d.stage, onChange: e=>set("stage",e.target.value),}
+            , STAGES.map(s=>React.createElement('option', { key: s,}, s))
+          )
+          , React.createElement('div', { className: "ml-auto flex gap-2"  ,}
+            , React.createElement('button', { className: "btn-soft", onClick: handleHire,}, "Hire / assign →"   )
+          )
+        )
+      )
+
+      , React.createElement(Section, { title: "Profile",}
+        , React.createElement('div', { className: "grid gap-3 sm:grid-cols-2"  ,}
+          , React.createElement(Field, { label: "Full name" ,}, React.createElement('input', { className: "inp", value: d.full_name, onChange: e=>set("full_name",e.target.value),} ))
+          , React.createElement(Field, { label: "Email",}, React.createElement('input', { className: "inp", value: d.email||"", onChange: e=>set("email",e.target.value),} ))
+          , React.createElement(Field, { label: "Phone / WhatsApp"  ,}, React.createElement('input', { className: "inp", value: d.phone||"", onChange: e=>set("phone",e.target.value),} ))
+          , React.createElement(Field, { label: "Portfolio link" ,}, React.createElement('input', { className: "inp", value: d.portfolio_link||"", onChange: e=>set("portfolio_link",e.target.value),} ))
+        )
+        , React.createElement('div', { className: "mt-3",}
+          , React.createElement(WorkAreaPicker, { value: d.work_areas, subValue: d.sub_specialties,
+            onChange: v=>set("work_areas",v), onSubChange: v=>set("sub_specialties",v),
+            workAreas: db.workAreas, subSpecialties: db.subSpecialties,} )
+        )
+      )
+
+      , React.createElement(Section, { title: "Availability & fit"  ,}
+        , React.createElement('div', { className: "grid gap-3 sm:grid-cols-2"  ,}
+          , React.createElement(Field, { label: "Hours per week"  ,}, React.createElement('input', { className: "inp", value: d.hours_per_week||"", onChange: e=>set("hours_per_week",e.target.value),} ))
+          , React.createElement(Field, { label: "Collaboration type" ,}
+            , React.createElement('select', { className: "inp", value: d.collaboration_type||"", onChange: e=>set("collaboration_type",e.target.value),}
+              , React.createElement('option', { value: "",}, "—"), COLLAB.map(c=>React.createElement('option', { key: c,}, c))
+            )
+          )
+          , React.createElement(Field, { label: "Typical turnaround" ,}, React.createElement('input', { className: "inp", value: d.turnaround_time||"", onChange: e=>set("turnaround_time",e.target.value),} ))
+          , React.createElement(Field, { label: "Primary design tools"  ,}, React.createElement('input', { className: "inp", value: d.design_tools||"", onChange: e=>set("design_tools",e.target.value),} ))
+          , React.createElement(Field, { label: "OK with feedback & revisions"    ,}
+            , React.createElement('select', { className: "inp", value: d.ok_with_feedback===null?"":String(d.ok_with_feedback), onChange: e=>set("ok_with_feedback", e.target.value===""?null:e.target.value==="true"),}
+              , React.createElement('option', { value: "",}, "—"), React.createElement('option', { value: "true",}, "Yes"), React.createElement('option', { value: "false",}, "No")
+            )
+          )
+          , React.createElement(Field, { label: "Can share editable source files"    ,}
+            , React.createElement('select', { className: "inp", value: d.can_share_source===null?"":String(d.can_share_source), onChange: e=>set("can_share_source", e.target.value===""?null:e.target.value==="true"),}
+              , React.createElement('option', { value: "",}, "—"), React.createElement('option', { value: "true",}, "Yes"), React.createElement('option', { value: "false",}, "No")
+            )
+          )
+          , React.createElement(Field, { label: "Willing to take a design test"     ,}
+            , React.createElement('select', { className: "inp", value: d.willing_design_test||"", onChange: e=>set("willing_design_test",e.target.value),}
+              , React.createElement('option', { value: "",}, "—"), TEST_OPTS.map(t=>React.createElement('option', { key: t,}, t))
+            )
+          )
+        )
+        , React.createElement('div', { className: "mt-3 grid gap-3"  ,}
+          , React.createElement(Field, { label: "Types of projects worked on previously"     ,}, React.createElement('textarea', { className: "inp", rows: 2, value: d.past_project_types||"", onChange: e=>set("past_project_types",e.target.value),} ))
+          , React.createElement(Field, { label: "2–3 best portfolio projects"   ,}, React.createElement('textarea', { className: "inp", rows: 2, value: d.best_portfolio_projects||"", onChange: e=>set("best_portfolio_projects",e.target.value),} ))
+          , React.createElement(Field, { label: "Anything else / notes"   ,}, React.createElement('textarea', { className: "inp", rows: 2, value: d.intake_notes||"", onChange: e=>set("intake_notes",e.target.value),} ))
+        )
+      )
+
+      , React.createElement(Section, { title: "Vetting checklist" ,}
+        , db.checklistItems.length===0
+          ? React.createElement('p', { className: "text-sm text-muted" ,}, "Add checklist items in Settings."    )
+          : React.createElement('div', { className: "space-y-1.5",}
+              , db.checklistItems.map(item=>{
+                const on = !!(d.checklist||{})[item.id];
+                return (
+                  React.createElement('button', { key: item.id, type: "button",
+                    onClick: ()=>set("checklist",{...(d.checklist||{}), [item.id]: !on}),
+                    className: cx("flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition",
+                      on ? "border-green-300 bg-green-50 text-ink" : "border-line bg-white text-muted hover:bg-paper"),}
+                    , React.createElement('span', { className: cx("flex h-4 w-4 items-center justify-center rounded border text-[10px]", on?"border-green-500 bg-green-500 text-white":"border-line"),}, on?"✓":"")
+                    , item.label
+                  )
+                );
+              })
+            )
+      )
+
+      /* Pricing — discussed last; collapsed by default for new records */
+      , React.createElement('div', { className: "card mb-5 overflow-hidden"  ,}
+        , React.createElement('button', { type: "button", onClick: ()=>setShowPricing(v=>!v),
+          className: "flex w-full items-center justify-between px-4 py-3 text-left"      ,}
+          , React.createElement('div', null
+            , React.createElement('span', { className: "text-sm font-bold text-ink"  ,}, "Pricing & payment"  )
+            , React.createElement('span', { className: "ml-2 text-xs text-muted"  ,}, "discussed after the test & vetting"     )
+          )
+          , React.createElement('span', { className: "text-muted",}, showPricing?"▲":"▼")
+        )
+        , showPricing && (
+          React.createElement('div', { className: "grid gap-3 border-t border-line px-4 py-4 sm:grid-cols-2"      ,}
+            , React.createElement(Field, { label: "Quoted rate / price"   ,}, React.createElement('input', { className: "inp font-mono" , type: "number", value: _nullishCoalesce(d.quoted_rate, () => ("")), onChange: e=>set("quoted_rate",e.target.value),} ))
+            , React.createElement(Field, { label: "Currency",}, React.createElement('input', { className: "inp", value: d.currency||"", onChange: e=>set("currency",e.target.value),} ))
+            , React.createElement(Field, { label: "Pay type" ,}
+              , React.createElement('select', { className: "inp", value: d.pay_type||"", onChange: e=>set("pay_type",e.target.value),}
+                , PAY_TYPES.map(p=>React.createElement('option', { key: p,}, p))
+              )
+            )
+            , React.createElement(Field, { label: "Payment notes" ,}, React.createElement('input', { className: "inp", value: d.payment_notes||"", onChange: e=>set("payment_notes",e.target.value),} ))
+          )
+        )
+      )
+
+      , React.createElement(Section, { title: "Extras",}
+        , React.createElement('div', { className: "grid gap-3 sm:grid-cols-3"  ,}
+          , React.createElement(Field, { label: "Rating",}
+            , React.createElement('select', { className: "inp", value: _nullishCoalesce(d.rating, () => ("")), onChange: e=>set("rating",e.target.value),}
+              , React.createElement('option', { value: "",}, "—"), [1,2,3,4,5].map(n=>React.createElement('option', { key: n, value: n,}, "★".repeat(n)))
+            )
+          )
+          , React.createElement(Field, { label: "Source",}
+            , React.createElement('select', { className: "inp", value: d.source||"", onChange: e=>set("source",e.target.value),}
+              , SOURCES.map(s=>React.createElement('option', { key: s,}, s))
+            )
+          )
+          , React.createElement(Field, { label: "Tags (comma-separated)" ,}, React.createElement('input', { className: "inp", value: arr(d.tags).join(", "), onChange: e=>set("tags",splitList(e.target.value)),} ))
+        )
+      )
+
+      , !isNew && (
+        React.createElement(Section, { title: "Comments / activity"  ,}
+          , React.createElement(CommentThread, { items: comments,
+            onAdd: (body)=>db.addComment({ freelancer_id:f.id, body }),
+            onDelete: (id)=>db.deleteComment(id),} )
+        )
+      )
+
+      , showAssign && React.createElement(AssignDialog, { freelancer: d, db: db, onClose: ()=>setShowAssign(false),} )
+    )
+  );
+}
+function Section({ title, children }){
+  return (
+    React.createElement('div', { className: "card mb-5 p-4"  ,}
+      , React.createElement('h3', { className: "mb-3 text-sm font-bold text-ink"   ,}, title)
+      , children
+    )
+  );
+}
+
+/* ============================ Hire → assign to project ============================ */
+function AssignDialog({ freelancer, db, onClose }){
+  const [mode,setMode] = useState(db.projects.length ? "existing" : "new");
+  const [projectId,setProjectId] = useState(_optionalChain([db, 'access', _ => _.projects, 'access', _2 => _2[0], 'optionalAccess', _3 => _3.id]) || "");
+  const [name,setName] = useState("");
+  const [role,setRole] = useState("");
+  const [busy,setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    let pid = projectId;
+    if(mode==="new"){
+      if(!name.trim()){ setBusy(false); return; }
+      const p = await db.createProject({ name:name.trim(), status:"Active" });
+      pid = p.id;
+    }
+    if(pid) await db.assign(pid, freelancer.id, role.trim()||null);
+    setBusy(false); onClose();
+  };
+  return (
+    React.createElement(Modal, { open: true, onClose: onClose, title: "Assign to project"  , subtitle: freelancer.full_name,
+      footer: React.createElement(React.Fragment, null, React.createElement('button', { className: "btn-ghost", onClick: onClose,}, "Cancel")
+        , React.createElement('button', { className: "btn-primary", disabled: busy || (mode==="existing"&&!projectId) || (mode==="new"&&!name.trim()), onClick: go,}, busy?"Assigning…":"Assign")),}
+      , React.createElement('div', { className: "mb-4 inline-flex rounded-lg bg-paper p-1"    ,}
+        , React.createElement('button', { className: cx("seg", mode==="existing"?"bg-white shadow-sm text-ink":"text-muted"), onClick: ()=>setMode("existing"), disabled: !db.projects.length,}, "Existing project" )
+        , React.createElement('button', { className: cx("seg", mode==="new"?"bg-white shadow-sm text-ink":"text-muted"), onClick: ()=>setMode("new"),}, "New project" )
+      )
+      , mode==="existing"
+        ? React.createElement(Field, { label: "Project",}
+            , React.createElement('select', { className: "inp", value: projectId, onChange: e=>setProjectId(e.target.value),}
+              , db.projects.map(p=>React.createElement('option', { key: p.id, value: p.id,}, p.name))
+            )
+          )
+        : React.createElement(Field, { label: "New project name"  ,}, React.createElement('input', { className: "inp", autoFocus: true, value: name, onChange: e=>setName(e.target.value),} ))
+      , React.createElement('div', { className: "mt-3",}, React.createElement(Field, { label: "Role on this project (optional)"    ,}, React.createElement('input', { className: "inp", value: role, onChange: e=>setRole(e.target.value), placeholder: "e.g. Lead UI designer"   ,} )))
+    )
+  );
+}
+
+/* ============================ Freelancer card ============================ */
+function FreelancerCard({ f, db, onOpen, draggable }){
+  return (
+    React.createElement('div', { draggable: draggable,
+      onDragStart: e=>{ e.dataTransfer.setData("text/plain", f.id); e.dataTransfer.effectAllowed="move"; },
+      onClick: ()=>onOpen(f),
+      className: "card cursor-pointer p-3 transition hover:border-brand/40 hover:shadow-sm"     ,}
+      , React.createElement('div', { className: "flex items-start justify-between gap-2"   ,}
+        , React.createElement('div', { className: "min-w-0",}
+          , React.createElement('p', { className: "truncate text-sm font-semibold text-ink"   ,}, f.full_name)
+          , f.email && React.createElement('p', { className: "truncate text-xs text-muted"  ,}, f.email)
+        )
+        , React.createElement(Stars, { value: f.rating,} )
+      )
+      , arr(f.work_areas).length>0 && (
+        React.createElement('div', { className: "mt-2 flex flex-wrap gap-1"   ,}, arr(f.work_areas).slice(0,3).map(w=>React.createElement(Tag, { key: w,}, w)))
+      )
+      , React.createElement('div', { className: "mt-2 flex items-center justify-between gap-2"    ,}
+        , React.createElement(StageChip, { stage: f.stage,} )
+        , React.createElement(ChecklistPill, { f: f, items: db.checklistItems,} )
+      )
+    )
+  );
+}
+
+/* ============================ Kanban board ============================ */
+function Board({ items, db, onOpen }){
+  const [over,setOver] = useState(null);
+  const cols = [...ACTIVE_STAGES, ...TERMINAL_STAGES];
+  return (
+    React.createElement('div', { className: "flex gap-3 overflow-x-auto pb-3"   ,}
+      , cols.map(stage=>{
+        const list = items.filter(f=>f.stage===stage);
+        const c = STAGE_COLOR[stage];
+        return (
+          React.createElement('div', { key: stage,
+            'data-dragover': over===stage,
+            onDragOver: e=>{ e.preventDefault(); setOver(stage); },
+            onDragLeave: ()=> setOver(o=>o===stage?null:o),
+            onDrop: e=>{ e.preventDefault(); setOver(null); const id=e.dataTransfer.getData("text/plain"); if(id) db.setStage(id, stage); },
+            className: "flex w-72 shrink-0 flex-col rounded-xl bg-paper/60 ring-1 ring-line"       ,}
+            , React.createElement('div', { className: "flex items-center justify-between px-3 py-2.5"    ,}
+              , React.createElement('span', { className: "flex items-center gap-2 text-sm font-semibold text-ink"     ,}
+                , React.createElement('span', { className: "h-2 w-2 rounded-full"  , style: {background:c},} ), stage
+              )
+              , React.createElement('span', { className: "font-mono text-xs text-muted"  ,}, list.length)
+            )
+            , React.createElement('div', { className: "flex-1 space-y-2 px-2 pb-2"   ,}
+              , list.map(f=>React.createElement(FreelancerCard, { key: f.id, f: f, db: db, onOpen: onOpen, draggable: true,} ))
+              , list.length===0 && React.createElement('p', { className: "px-1 py-2 text-xs text-muted"   ,}, "—")
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+/* ============================ Pipeline view ============================ */
+function Pipeline({ db, onOpen, presetStage, clearPreset }){
+  const [view,setView] = useState("list");
+  const [q,setQ] = useState("");
+  const [fWA,setFWA] = useState("");
+  const [fSub,setFSub] = useState("");
+  const [fStage,setFStage] = useState("");
+  const [fCollab,setFCollab] = useState("");
+  const [fRating,setFRating] = useState("");
+  const [fCheck,setFCheck] = useState(""); // checklist item id "incomplete"
+
+  // Open filtered to a stage when arriving from a dashboard tile.
+  useEffect(()=>{ if(presetStage){ setFStage(presetStage); clearPreset && clearPreset(); } }, [presetStage]);
+
+  const items = useMemo(()=>{
+    const ql = q.trim().toLowerCase();
+    return db.freelancers.filter(f=>{
+      if(ql){
+        const hay = [f.full_name,f.email,arr(f.tags).join(" "),arr(f.work_areas).join(" "),f.design_tools].join(" ").toLowerCase();
+        if(!hay.includes(ql)) return false;
+      }
+      if(fWA && !arr(f.work_areas).includes(fWA)) return false;
+      if(fSub && !arr(f.sub_specialties).includes(fSub)) return false;
+      if(fStage && f.stage!==fStage) return false;
+      if(fCollab && f.collaboration_type!==fCollab) return false;
+      if(fRating && (f.rating||0) < Number(fRating)) return false;
+      if(fCheck && (f.checklist||{})[fCheck]) return false; // show only those NOT done
+      return true;
+    });
+  },[db.freelancers,q,fWA,fSub,fStage,fCollab,fRating,fCheck]);
+
+  const clearFilters = ()=>{ setQ("");setFWA("");setFSub("");setFStage("");setFCollab("");setFRating("");setFCheck(""); };
+  const anyFilter = q||fWA||fSub||fStage||fCollab||fRating||fCheck;
+
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Talent Pipeline" , subtitle: "Source, vet, and move freelancers through hiring"      ,} )
+      , React.createElement('div', { className: "card mb-5 flex flex-wrap items-center gap-2 p-3"      ,}
+        , React.createElement('div', { className: "inline-flex rounded-lg border border-line bg-white p-1"     ,}
+          , React.createElement('button', { className: cx("seg", view==="list"?"bg-brand-soft text-brand":"text-muted"), onClick: ()=>setView("list"),}, "List")
+          , React.createElement('button', { className: cx("seg", view==="board"?"bg-brand-soft text-brand":"text-muted"), onClick: ()=>setView("board"),}, "Board")
+        )
+        , React.createElement('input', { className: "inp max-w-xs" , placeholder: "Search name, email, tag, tool…"    , value: q, onChange: e=>setQ(e.target.value),} )
+        , React.createElement('select', { className: "inp max-w-[150px]" , value: fWA, onChange: e=>{setFWA(e.target.value);setFSub("");},}
+          , React.createElement('option', { value: "",}, "All work areas"  ), db.workAreas.map(w=>React.createElement('option', { key: w.id,}, w.name))
+        )
+        , fWA && React.createElement('select', { className: "inp max-w-[150px]" , value: fSub, onChange: e=>setFSub(e.target.value),}
+          , React.createElement('option', { value: "",}, "All specialties" ), db.subSpecialties.filter(s=>s.work_area===fWA).map(s=>React.createElement('option', { key: s.id,}, s.name))
+        )
+        , React.createElement('select', { className: "inp max-w-[150px]" , value: fStage, onChange: e=>setFStage(e.target.value),}
+          , React.createElement('option', { value: "",}, "All stages" ), STAGES.map(s=>React.createElement('option', { key: s,}, s))
+        )
+        , React.createElement('select', { className: "inp max-w-[150px]" , value: fCollab, onChange: e=>setFCollab(e.target.value),}
+          , React.createElement('option', { value: "",}, "Any collaboration" ), COLLAB.map(c=>React.createElement('option', { key: c,}, c))
+        )
+        , React.createElement('select', { className: "inp max-w-[120px]" , value: fRating, onChange: e=>setFRating(e.target.value),}
+          , React.createElement('option', { value: "",}, "Any rating" ), [5,4,3,2,1].map(n=>React.createElement('option', { key: n, value: n,}, n, "★+"))
+        )
+        , db.checklistItems.length>0 &&
+          React.createElement('select', { className: "inp max-w-[180px]" , value: fCheck, onChange: e=>setFCheck(e.target.value),}
+            , React.createElement('option', { value: "",}, "Checklist: any" )
+            , db.checklistItems.map(i=>React.createElement('option', { key: i.id, value: i.id,}, "Not done: "  , i.label))
+          )
+        , anyFilter && React.createElement('button', { className: "btn-ghost", onClick: clearFilters,}, "Clear")
+        , React.createElement('span', { className: "ml-auto font-mono text-xs text-muted"   ,}, items.length, " / "  , db.freelancers.length)
+      )
+
+      , view==="board"
+        ? React.createElement(Board, { items: items, db: db, onOpen: onOpen,} )
+        : React.createElement(ListTable, { items: items, db: db, onOpen: onOpen,} )
+    )
+  );
+}
+
+function ListTable({ items, db, onOpen }){
+  if(items.length===0) return React.createElement(Empty, null, "No freelancers match."  );
+  return (
+    React.createElement('div', { className: "card overflow-hidden" ,}
+      , React.createElement('div', { className: "overflow-x-auto",}
+        , React.createElement('table', { className: "w-full text-sm" ,}
+          , React.createElement('thead', { className: "border-b border-line bg-paper/70 text-left text-[11px] uppercase tracking-wide text-muted"       ,}
+            , React.createElement('tr', null
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Name")
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Work areas" )
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Stage")
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Checklist")
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Collab")
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Rating")
+              , React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Rate")
+            )
+          )
+          , React.createElement('tbody', null
+            , items.map(f=>(
+              React.createElement('tr', { key: f.id, onClick: ()=>onOpen(f), className: "cursor-pointer border-t border-line/70 transition hover:bg-paper/60"    ,}
+                , React.createElement('td', { className: "px-5 py-3" ,}
+                  , React.createElement('div', { className: "flex items-center gap-2.5"  ,}
+                    , React.createElement(Avatar, { name: f.full_name, size: 32,} )
+                    , React.createElement('div', { className: "min-w-0",}
+                      , React.createElement('div', { className: "truncate font-semibold text-ink"  ,}, f.full_name)
+                      , f.email && React.createElement('div', { className: "truncate text-xs text-muted"  ,}, f.email)
+                    )
+                  )
+                )
+                , React.createElement('td', { className: "px-5 py-3" ,}, React.createElement('div', { className: "flex flex-wrap gap-1"  ,}, arr(f.work_areas).slice(0,3).map(w=>React.createElement(Tag, { key: w,}, w))))
+                , React.createElement('td', { className: "px-5 py-3" ,}, React.createElement(StageChip, { stage: f.stage,} ))
+                , React.createElement('td', { className: "px-5 py-3" ,}, React.createElement(ChecklistPill, { f: f, items: db.checklistItems,} ))
+                , React.createElement('td', { className: "px-5 py-3 text-muted"  ,}, f.collaboration_type||"—")
+                , React.createElement('td', { className: "px-5 py-3" ,}, React.createElement(Stars, { value: f.rating,} ))
+                , React.createElement('td', { className: "px-5 py-3 font-mono text-xs text-muted"    ,}, f.quoted_rate?`${f.quoted_rate} ${f.currency||""}`:"—")
+              )
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ============================ Projects ============================ */
+function Projects({ db }){
+  const [open,setOpen] = useState(null);
+  const [creating,setCreating] = useState(false);
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Projects", actions: React.createElement('button', { className: "btn-primary", onClick: ()=>setCreating(true),}, "+ New project"  ),} )
+      , db.projects.length===0
+        ? React.createElement(Empty, null, "No projects yet. Hire a freelancer or create a project to start."           )
+        : React.createElement('div', { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"   ,}
+            , db.projects.map(p=>{
+              const count = db.assignments.filter(a=>a.project_id===p.id).length;
+              return (
+                React.createElement('button', { key: p.id, onClick: ()=>setOpen(p), className: "card p-4 text-left transition hover:border-brand/40 hover:shadow-sm"     ,}
+                  , React.createElement('div', { className: "flex items-center justify-between"  ,}
+                    , React.createElement('span', { className: "font-semibold text-ink" ,}, p.name)
+                    , React.createElement(ProjectStatusChip, { status: p.status,} )
+                  )
+                  , p.description && React.createElement('p', { className: "mt-1 line-clamp-2 text-sm text-muted"   ,}, p.description)
+                  , React.createElement('div', { className: "mt-3 flex items-center justify-between font-mono text-xs text-muted"      ,}
+                    , React.createElement('span', null, count, " assigned" )
+                    , React.createElement('span', null, p.start_date?fmtDate(p.start_date):"")
+                  )
+                )
+              );
+            })
+          )
+      , creating && React.createElement(ProjectDetail, { project: {}, db: db, onClose: ()=>setCreating(false),} )
+      , open && React.createElement(ProjectDetail, { project: open, db: db, onClose: ()=>setOpen(null),} )
+    )
+  );
+}
+function ProjectStatusChip({ status }){
+  const m = { "Active":"#16A34A", "On hold":"#F59E0B", "Completed":"#6B7280" }[status] || "#6B7280";
+  return React.createElement('span', { className: "chip", style: {background:hexA(m,0.12), color:m},}, status);
+}
+
+function ProjectDetail({ project, db, onClose }){
+  const isNew = !project.id;
+  const [d,setD] = useState(()=>({ name:"", description:"", status:"Active", start_date:"", end_date:"", ...project }));
+  const set = (k,v)=>setD(p=>({...p,[k]:v}));
+  const [busy,setBusy] = useState(false);
+  const [addId,setAddId] = useState("");
+  const assignments = db.assignments.filter(a=>a.project_id===project.id);
+  const projComments = db.comments.filter(c=>c.project_id===project.id);
+  const assignedIds = assignments.map(a=>a.freelancer_id);
+  const candidates = db.freelancers.filter(f=>!assignedIds.includes(f.id));
+
+  const save = async () => {
+    setBusy(true);
+    const payload = { name:d.name.trim(), description:d.description||null, status:d.status,
+      start_date:d.start_date||null, end_date:d.end_date||null };
+    await db.saveProject(project.id, payload);
+    setBusy(false); onClose();
+  };
+
+  return (
+    React.createElement(Modal, { open: true, onClose: onClose, wide: true, title: isNew?"New project":d.name||"Project",
+      footer: React.createElement(React.Fragment, null
+        , !isNew && React.createElement('button', { className: "btn-danger mr-auto" , onClick: async()=>{ if(confirm("Delete this project? Assignments and project comments are removed; freelancer records stay.")){ await db.deleteProject(project.id); onClose(); } },}, "Delete")
+        , React.createElement('button', { className: "btn-ghost", onClick: onClose,}, "Cancel")
+        , React.createElement('button', { className: "btn-primary", disabled: busy||!d.name.trim(), onClick: save,}, busy?"Saving…":"Save")
+      ),}
+      , React.createElement(Section, { title: "Details",}
+        , React.createElement('div', { className: "grid gap-3 sm:grid-cols-2"  ,}
+          , React.createElement(Field, { label: "Project name" ,}, React.createElement('input', { className: "inp", value: d.name, onChange: e=>set("name",e.target.value),} ))
+          , React.createElement(Field, { label: "Status",}, React.createElement('select', { className: "inp", value: d.status, onChange: e=>set("status",e.target.value),}, PROJECT_STATUS.map(s=>React.createElement('option', { key: s,}, s))))
+          , React.createElement(Field, { label: "Start date" ,}, React.createElement('input', { className: "inp", type: "date", value: d.start_date||"", onChange: e=>set("start_date",e.target.value),} ))
+          , React.createElement(Field, { label: "End date" ,}, React.createElement('input', { className: "inp", type: "date", value: d.end_date||"", onChange: e=>set("end_date",e.target.value),} ))
+        )
+        , React.createElement('div', { className: "mt-3",}, React.createElement(Field, { label: "Description",}, React.createElement('textarea', { className: "inp", rows: 2, value: d.description||"", onChange: e=>set("description",e.target.value),} )))
+      )
+
+      , !isNew && (
+        React.createElement(React.Fragment, null
+          , React.createElement(Section, { title: `Roster (${assignments.length})`,}
+            , React.createElement('div', { className: "mb-3 flex gap-2"  ,}
+              , React.createElement('select', { className: "inp", value: addId, onChange: e=>setAddId(e.target.value),}
+                , React.createElement('option', { value: "",}, "Assign a freelancer…"  )
+                , candidates.map(f=>React.createElement('option', { key: f.id, value: f.id,}, f.full_name))
+              )
+              , React.createElement('button', { className: "btn-soft shrink-0" , disabled: !addId, onClick: async()=>{ await db.assign(project.id, addId, null); setAddId(""); },}, "Add")
+            )
+            , React.createElement('div', { className: "space-y-3",}
+              , assignments.length===0 && React.createElement('p', { className: "text-sm text-muted" ,}, "No freelancers assigned yet."   )
+              , assignments.map(a=>{
+                const f = db.freelancers.find(x=>x.id===a.freelancer_id);
+                if(!f) return null;
+                const updates = db.comments.filter(c=>c.assignment_id===a.id);
+                return (
+                  React.createElement('div', { key: a.id, className: "rounded-xl border border-line bg-white p-3"    ,}
+                    , React.createElement('div', { className: "flex items-center justify-between gap-2"   ,}
+                      , React.createElement('div', null
+                        , React.createElement('span', { className: "font-semibold text-ink" ,}, f.full_name)
+                        , React.createElement('input', { className: "ml-2 rounded border border-line px-2 py-0.5 text-xs text-muted"       , placeholder: "role…", defaultValue: a.role||"",
+                          onBlur: e=>{ if(e.target.value!==(a.role||"")) db.updateAssignmentRole(a.id, e.target.value||null); },} )
+                      )
+                      , React.createElement('button', { className: "text-xs text-muted hover:text-red-600"  , onClick: ()=>{ if(confirm("Remove from project?")) db.unassign(a.id); },}, "remove")
+                    )
+                    , React.createElement('div', { className: "mt-2",}
+                      , React.createElement(CommentThread, { items: updates, placeholder: `Update on ${f.full_name}…`,
+                        onAdd: (body)=>db.addComment({ assignment_id:a.id, project_id:project.id, freelancer_id:f.id, body }),
+                        onDelete: (id)=>db.deleteComment(id),} )
+                    )
+                  )
+                );
+              })
+            )
+          )
+
+          , React.createElement(Section, { title: "Project comments" ,}
+            , React.createElement(CommentThread, { items: projComments.filter(c=>!c.assignment_id),
+              onAdd: (body)=>db.addComment({ project_id:project.id, body }),
+              onDelete: (id)=>db.deleteComment(id),} )
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ============================ Freelancers directory (read-only) ============================ */
+const PROSPECT_STAGES = ["New","Reviewing","Test Offered","Test Submitted","Evaluated"];
+const DIR_FILTERS = [["all","All"],["prospects","Prospects"],["hired","Hired"],["archived","Archived"],["rejected","Rejected"]];
+const dirMatch = (f, key) => {
+  if(key==="all") return true;
+  if(key==="prospects") return PROSPECT_STAGES.includes(f.stage);
+  if(key==="hired") return f.stage==="Hired";
+  if(key==="archived") return f.stage==="Archived";
+  if(key==="rejected") return f.stage==="Rejected";
+  return true;
+};
+function Freelancers({ db, onOpen }){
+  const [filter,setFilter] = useState("all");
+  const [q,setQ] = useState("");
+  const items = db.freelancers.filter(f=>{
+    if(!dirMatch(f, filter)) return false;
+    if(q.trim()){
+      const hay=[f.full_name,f.email,arr(f.work_areas).join(" "),arr(f.tags).join(" ")].join(" ").toLowerCase();
+      if(!hay.includes(q.trim().toLowerCase())) return false;
+    }
+    return true;
+  });
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Freelancers", subtitle: "Everyone in the directory — prospects and hired"       ,} )
+      , React.createElement('div', { className: "mb-4 flex flex-wrap items-center gap-2"    ,}
+        , React.createElement('div', { className: "inline-flex flex-wrap rounded-lg border border-line bg-white p-1"      ,}
+          , DIR_FILTERS.map(([k,l])=>(
+            React.createElement('button', { key: k, onClick: ()=>setFilter(k), className: cx("seg", filter===k?"bg-brand-soft text-brand":"text-muted hover:text-ink"),}
+              , l, " " , React.createElement('span', { className: "font-mono text-[11px] opacity-70"  ,}, db.freelancers.filter(f=>dirMatch(f,k)).length)
+            )
+          ))
+        )
+        , React.createElement('input', { className: "inp max-w-xs" , placeholder: "Search name, email, work area…"    , value: q, onChange: e=>setQ(e.target.value),} )
+        , React.createElement('span', { className: "ml-auto font-mono text-xs text-muted"   ,}, items.length)
+      )
+      , items.length===0 ? React.createElement(Empty, null, "No freelancers here yet."   ) :
+        React.createElement('div', { className: "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"   ,}
+          , items.map(f=>(
+            React.createElement('button', { key: f.id, onClick: ()=>onOpen(f), className: "card p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"     ,}
+              , React.createElement('div', { className: "flex items-center gap-3"  ,}
+                , React.createElement(Avatar, { name: f.full_name, size: 44,} )
+                , React.createElement('div', { className: "min-w-0",}
+                  , React.createElement('p', { className: "truncate font-semibold text-ink"  ,}, f.full_name)
+                  , f.email && React.createElement('p', { className: "truncate text-xs text-muted"  ,}, f.email)
+                )
+                , React.createElement('div', { className: "ml-auto",}, React.createElement(Stars, { value: f.rating,} ))
+              )
+              , arr(f.work_areas).length>0 && React.createElement('div', { className: "mt-3 flex flex-wrap gap-1"   ,}, arr(f.work_areas).slice(0,3).map(w=>React.createElement(Tag, { key: w,}, w)))
+              , React.createElement('div', { className: "mt-4 flex items-center justify-between gap-2 border-t border-line/70 pt-3"       ,}
+                , React.createElement(StageChip, { stage: f.stage,} )
+                , React.createElement(ChecklistPill, { f: f, items: db.checklistItems,} )
+              )
+            )
+          ))
+        )
+    )
+  );
+}
+function ReadOnlyRow({ label, value }){
+  return (
+    React.createElement('div', { className: "flex justify-between gap-3 border-b border-line/70 py-1.5 last:border-0"      ,}
+      , React.createElement('span', { className: "shrink-0 text-xs text-muted"  ,}, label)
+      , React.createElement('span', { className: "text-right text-sm text-ink"  ,}, (value || value===0) ? value : "—")
+    )
+  );
+}
+function FreelancerViewPage({ f, db, onBack, onEdit }){
+  const comments = db.comments.filter(c=>c.freelancer_id===f.id); // same shared thread as the pipeline record
+  return (
+    React.createElement(PageShell, { onBack: onBack, title: f.full_name, subtitle: f.email||"",
+      actions: React.createElement('button', { className: "btn-primary", onClick: ()=>onEdit(f),}, "Open in Pipeline"  ),}
+      , React.createElement('div', { className: "mb-4 flex items-center gap-2"   ,}
+        , React.createElement(StageChip, { stage: f.stage,} )
+        , React.createElement(ChecklistPill, { f: f, items: db.checklistItems,} )
+        , React.createElement('span', { className: "ml-auto text-[11px] text-muted"  ,}, "Read-only · edit in the Pipeline"     )
+      )
+
+      , React.createElement(Section, { title: "Profile",}
+        , React.createElement(ReadOnlyRow, { label: "Phone / WhatsApp"  , value: f.phone,} )
+        , React.createElement(ReadOnlyRow, { label: "Portfolio", value: f.portfolio_link ? React.createElement('a', { className: "text-brand underline" , href: f.portfolio_link, target: "_blank", rel: "noreferrer",}, f.portfolio_link) : null,} )
+        , React.createElement(ReadOnlyRow, { label: "Work areas" , value: arr(f.work_areas).join(", "),} )
+        , React.createElement(ReadOnlyRow, { label: "Sub-specialties", value: arr(f.sub_specialties).join(", "),} )
+        , React.createElement(ReadOnlyRow, { label: "Hours / week"  , value: f.hours_per_week,} )
+        , React.createElement(ReadOnlyRow, { label: "Collaboration", value: f.collaboration_type,} )
+        , React.createElement(ReadOnlyRow, { label: "Turnaround", value: f.turnaround_time,} )
+        , React.createElement(ReadOnlyRow, { label: "Design tools" , value: f.design_tools,} )
+        , React.createElement(ReadOnlyRow, { label: "OK with feedback"  , value: tri(f.ok_with_feedback),} )
+        , React.createElement(ReadOnlyRow, { label: "Can share source"  , value: tri(f.can_share_source),} )
+        , React.createElement(ReadOnlyRow, { label: "Willing design test"  , value: f.willing_design_test,} )
+        , React.createElement(ReadOnlyRow, { label: "Source", value: f.source,} )
+        , React.createElement(ReadOnlyRow, { label: "Tags", value: arr(f.tags).join(", "),} )
+      )
+
+      , (f.past_project_types || f.best_portfolio_projects || f.intake_notes) && (
+        React.createElement(Section, { title: "Notes",}
+          , f.past_project_types && React.createElement('div', { className: "mb-3",}, React.createElement('p', { className: "lbl",}, "Past project types"  ), React.createElement('p', { className: "whitespace-pre-wrap text-sm text-ink"  ,}, f.past_project_types))
+          , f.best_portfolio_projects && React.createElement('div', { className: "mb-3",}, React.createElement('p', { className: "lbl",}, "Best portfolio projects"  ), React.createElement('p', { className: "whitespace-pre-wrap text-sm text-ink"  ,}, f.best_portfolio_projects))
+          , f.intake_notes && React.createElement('div', null, React.createElement('p', { className: "lbl",}, "Anything else" ), React.createElement('p', { className: "whitespace-pre-wrap text-sm text-ink"  ,}, f.intake_notes))
+        )
+      )
+
+      , React.createElement(Section, { title: "Vetting checklist" ,}
+        , db.checklistItems.length===0 ? React.createElement('p', { className: "text-sm text-muted" ,}, "No checklist items."  ) :
+          React.createElement('div', { className: "space-y-1.5",}
+            , db.checklistItems.map(item=>{
+              const on=!!(f.checklist||{})[item.id];
+              return (
+                React.createElement('div', { key: item.id, className: cx("flex items-center gap-2 rounded-lg border px-3 py-2 text-sm", on?"border-green-200 bg-green-50 text-ink":"border-line bg-white text-muted"),}
+                  , React.createElement('span', { className: cx("flex h-4 w-4 items-center justify-center rounded border text-[10px]", on?"border-green-500 bg-green-500 text-white":"border-line"),}, on?"✓":"")
+                  , item.label
+                )
+              );
+            })
+          )
+      )
+
+      , React.createElement(Section, { title: "Pricing & payment"  ,}
+        , React.createElement(ReadOnlyRow, { label: "Quoted rate" , value: f.quoted_rate!=null ? `${f.quoted_rate} ${f.currency||""}` : null,} )
+        , React.createElement(ReadOnlyRow, { label: "Pay type" , value: f.pay_type,} )
+        , React.createElement(ReadOnlyRow, { label: "Payment notes" , value: f.payment_notes,} )
+      )
+
+      , React.createElement(Section, { title: "Comments / feedback"  ,}
+        , React.createElement(CommentThread, { items: comments,
+          onAdd: (body)=>db.addComment({ freelancer_id:f.id, body }),
+          onDelete: (id)=>db.deleteComment(id),} )
+      )
+    )
+  );
+}
+
+/* ============================ TOOLS module ============================ */
+const TOOL_PALETTE = ['#2E5E4E','#3A5A78','#6B4A6E','#A8623A','#9A7B12','#2C6E6A','#7A3B52','#4A5A2E','#824B3B','#3F4A6B'];
+const TOOL_KNOWN = {
+  'design':'#6B4A6E','writing':'#3A5A78','ai':'#2E5E4E','machine learning':'#2E5E4E',
+  'development':'#A8623A','dev tools':'#A8623A','developer tools':'#A8623A','code':'#A8623A',
+  'productivity':'#2C6E6A','research':'#7A3B52','data':'#9A7B12','analytics':'#9A7B12',
+  'marketing':'#824B3B','communication':'#3F4A6B','finance':'#4A5A2E','media':'#3A5A78'
+};
+function catColor(cat){
+  const k=(cat||'').toLowerCase().trim(); if(!k) return '#5E6B64';
+  if(TOOL_KNOWN[k]) return TOOL_KNOWN[k];
+  let hsh=0; for(let i=0;i<k.length;i++) hsh=(hsh*31+k.charCodeAt(i))>>>0;
+  return TOOL_PALETTE[hsh % TOOL_PALETTE.length];
+}
+const hostOf = (u)=>{ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return (u||'').replace(/^https?:\/\//,'').split('/')[0]; } };
+const normalizeUrl = (raw)=>{ let u=(raw||'').trim(); if(!u) return null; if(!/^https?:\/\//i.test(u)) u='https://'+u; try{ return new URL(u).href; }catch(e){ return null; } };
+const faviconUrl = (u)=>`https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostOf(u))}`;
+
+function ToolFavicon({ url }){
+  const [err,setErr]=useState(false);
+  if(err) return React.createElement('span', { className: "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-xs font-bold text-brand"          ,}, (hostOf(url)[0]||'?').toUpperCase());
+  return React.createElement('img', { src: faviconUrl(url), alt: "", onError: ()=>setErr(true), className: "h-9 w-9 shrink-0 rounded-lg bg-white object-contain ring-1 ring-line"       ,} );
+}
+function ToolsModule({ db }){
+  const [url,setUrl]=useState(""); const [q,setQ]=useState(""); const [cat,setCat]=useState(""); const [folder,setFolder]=useState(""); const [editing,setEditing]=useState(null);
+  const cats=[...new Set(db.tools.map(t=>t.category).filter(Boolean))].sort();
+  const folders=[...new Set(db.tools.flatMap(t=>arr(t.used_for)))].sort();
+  const items=db.tools.filter(t=>{
+    if(cat && t.category!==cat) return false;
+    if(folder && !arr(t.used_for).includes(folder)) return false;
+    if(q.trim()){ const hay=[t.name,t.description,t.url,arr(t.tags).join(" "),t.category,arr(t.used_for).join(" ")].join(" ").toLowerCase(); if(!hay.includes(q.trim().toLowerCase())) return false; }
+    return true;
+  });
+  const add=async()=>{ const u=normalizeUrl(url); if(!u) return; if(db.tools.some(t=>t.url===u)){ setUrl(""); return; } await db.saveTool(null,{ url:u, name:hostOf(u), description:"", category:"", tags:[], used_for:[] }); setUrl(""); };
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Tools", subtitle: "Your web-tool index"  ,} )
+      , React.createElement('div', { className: "card mb-5 p-3"  ,}
+        , React.createElement('div', { className: "flex gap-2" ,}
+          , React.createElement('input', { className: "inp", placeholder: "Paste a link to a tool you found…"       , value: url, onChange: e=>setUrl(e.target.value), onKeyDown: e=>e.key==='Enter'&&add(),} )
+          , React.createElement('button', { className: "btn-primary shrink-0" , disabled: !url.trim(), onClick: add,}, "Add tool" )
+        )
+      )
+      , React.createElement('div', { className: "mb-4 flex flex-wrap items-center gap-2"    ,}
+        , React.createElement('input', { className: "inp max-w-xs" , placeholder: "Search your index…"  , value: q, onChange: e=>setQ(e.target.value),} )
+        , cats.length>0 && React.createElement('select', { className: "inp max-w-[160px]" , value: cat, onChange: e=>setCat(e.target.value),}, React.createElement('option', { value: "",}, "All categories" ), cats.map(c=>React.createElement('option', { key: c,}, c)))
+        , folders.length>0 && React.createElement('select', { className: "inp max-w-[160px]" , value: folder, onChange: e=>setFolder(e.target.value),}, React.createElement('option', { value: "",}, "All folders" ), folders.map(c=>React.createElement('option', { key: c,}, c)))
+        , React.createElement('span', { className: "ml-auto font-mono text-xs text-muted"   ,}, items.length)
+      )
+      , items.length===0 ? React.createElement(Empty, null, "No tools yet. Paste a link above to start your index."          ) :
+        React.createElement('div', { className: "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"   ,}
+          , items.map(t=> editing===t.id
+            ? React.createElement(ToolEdit, { key: t.id, t: t, db: db, onDone: ()=>setEditing(null),} )
+            : React.createElement(ToolCard, { key: t.id, t: t, onEdit: ()=>setEditing(t.id), onDelete: ()=>{ if(confirm("Delete this tool?")) db.deleteTool(t.id); },} ))
+        )
+    )
+  );
+}
+function ToolCard({ t, onEdit, onDelete }){
+  const c=catColor(t.category);
+  return (
+    React.createElement('div', { className: "card flex flex-col p-4"   ,}
+      , React.createElement('div', { className: "flex items-start gap-3"  ,}
+        , React.createElement(ToolFavicon, { url: t.url,} )
+        , React.createElement('div', { className: "min-w-0 flex-1" ,}
+          , React.createElement('a', { href: t.url, target: "_blank", rel: "noreferrer", className: "block truncate font-semibold text-ink hover:underline"    ,}, t.name||hostOf(t.url))
+          , React.createElement('a', { href: t.url, target: "_blank", rel: "noreferrer", className: "block truncate text-xs text-muted hover:text-brand"    ,}, hostOf(t.url))
+        )
+        , React.createElement('div', { className: "flex shrink-0 gap-1"  ,}
+          , React.createElement('button', { onClick: onEdit, className: "rounded p-1.5 text-muted hover:bg-paper hover:text-ink"    , 'aria-label': "Edit",}, "✎")
+          , React.createElement('button', { onClick: onDelete, className: "rounded p-1.5 text-muted hover:bg-red-50 hover:text-red-600"    , 'aria-label': "Delete",}, "🗑")
+        )
+      )
+      , t.description && React.createElement('p', { className: "mt-3 text-sm text-ink/80"  ,}, t.description)
+      , (t.category || arr(t.tags).length>0) && React.createElement('div', { className: "mt-3 flex flex-wrap items-center gap-1.5"    ,}
+        , t.category && React.createElement('span', { className: "chip font-medium text-white"  , style: {background:c},}, t.category)
+        , arr(t.tags).map(tag=>React.createElement(Tag, { key: tag,}, tag))
+      )
+      , arr(t.used_for).length>0 && React.createElement('div', { className: "mt-2 flex flex-wrap items-center gap-1.5 border-t border-line/70 pt-2"       ,}
+        , React.createElement('span', { className: "text-[10px] font-semibold uppercase tracking-wide text-muted"    ,}, "Used for" )
+        , arr(t.used_for).map(u=>React.createElement('span', { key: u, className: "chip bg-accent-soft text-brand"  ,}, u))
+      )
+    )
+  );
+}
+function ToolEdit({ t, db, onDone }){
+  const [d,setD]=useState({ name:t.name||"", category:t.category||"", description:t.description||"", tags:arr(t.tags).join(", "), used_for:arr(t.used_for).join(", ") });
+  const set=(k,v)=>setD(p=>({...p,[k]:v}));
+  const save=async()=>{ await db.saveTool(t.id,{ name:d.name.trim()||hostOf(t.url), category:d.category.trim(), description:d.description.trim(), tags:splitList(d.tags), used_for:splitList(d.used_for) }); onDone(); };
+  return (
+    React.createElement('div', { className: "card flex flex-col gap-2 p-4 ring-2 ring-brand/30"      ,}
+      , React.createElement(Field, { label: "Name",}, React.createElement('input', { className: "inp", value: d.name, onChange: e=>set("name",e.target.value),} ))
+      , React.createElement(Field, { label: "Category",}, React.createElement('input', { className: "inp", value: d.category, onChange: e=>set("category",e.target.value), placeholder: "e.g. Design, AI, Productivity"   ,} ))
+      , React.createElement(Field, { label: "Description",}, React.createElement('textarea', { className: "inp", rows: 2, value: d.description, onChange: e=>set("description",e.target.value),} ))
+      , React.createElement(Field, { label: "Tags (comma-separated)" ,}, React.createElement('input', { className: "inp", value: d.tags, onChange: e=>set("tags",e.target.value),} ))
+      , React.createElement(Field, { label: "Used for (folders, comma-separated)"   ,}, React.createElement('input', { className: "inp", value: d.used_for, onChange: e=>set("used_for",e.target.value), placeholder: "NovaDirect, BonoboMail, VoiceAgent"  ,} ))
+      , React.createElement('div', { className: "mt-1 flex justify-end gap-2"   ,}, React.createElement('button', { className: "btn-ghost", onClick: onDone,}, "Cancel"), React.createElement('button', { className: "btn-primary", onClick: save,}, "Save"))
+    )
+  );
+}
+
+/* ============================ CLIENTS module ============================ */
+const TZ_LIST = ["Asia/Kolkata","Asia/Dubai","Asia/Singapore","Asia/Tokyo","Asia/Shanghai","Asia/Hong_Kong","Asia/Jakarta","Asia/Manila","Asia/Karachi","Asia/Dhaka","Europe/London","Europe/Paris","Europe/Berlin","Europe/Madrid","Europe/Moscow","Europe/Istanbul","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","America/Mexico_City","America/Toronto","Australia/Sydney","Pacific/Auckland","Africa/Lagos","Africa/Johannesburg","Africa/Cairo"];
+const COUNTRY_TZ = {
+  "Afghanistan":"Asia/Kabul","Albania":"Europe/Tirane","Algeria":"Africa/Algiers","Andorra":"Europe/Andorra","Angola":"Africa/Luanda",
+  "Argentina":"America/Argentina/Buenos_Aires","Armenia":"Asia/Yerevan","Australia":"Australia/Sydney","Austria":"Europe/Vienna","Azerbaijan":"Asia/Baku",
+  "Bahamas":"America/Nassau","Bahrain":"Asia/Bahrain","Bangladesh":"Asia/Dhaka","Barbados":"America/Barbados","Belarus":"Europe/Minsk",
+  "Belgium":"Europe/Brussels","Belize":"America/Belize","Benin":"Africa/Porto-Novo","Bhutan":"Asia/Thimphu","Bolivia":"America/La_Paz",
+  "Bosnia and Herzegovina":"Europe/Sarajevo","Botswana":"Africa/Gaborone","Brazil":"America/Sao_Paulo","Brunei":"Asia/Brunei","Bulgaria":"Europe/Sofia",
+  "Burkina Faso":"Africa/Ouagadougou","Cambodia":"Asia/Phnom_Penh","Cameroon":"Africa/Douala","Canada":"America/Toronto","Chile":"America/Santiago",
+  "China":"Asia/Shanghai","Colombia":"America/Bogota","Costa Rica":"America/Costa_Rica","Croatia":"Europe/Zagreb","Cuba":"America/Havana",
+  "Cyprus":"Asia/Nicosia","Czechia":"Europe/Prague","Denmark":"Europe/Copenhagen","Dominican Republic":"America/Santo_Domingo","Ecuador":"America/Guayaquil",
+  "Egypt":"Africa/Cairo","El Salvador":"America/El_Salvador","Estonia":"Europe/Tallinn","Ethiopia":"Africa/Addis_Ababa","Fiji":"Pacific/Fiji",
+  "Finland":"Europe/Helsinki","France":"Europe/Paris","Georgia":"Asia/Tbilisi","Germany":"Europe/Berlin","Ghana":"Africa/Accra",
+  "Greece":"Europe/Athens","Guatemala":"America/Guatemala","Honduras":"America/Tegucigalpa","Hong Kong":"Asia/Hong_Kong","Hungary":"Europe/Budapest",
+  "Iceland":"Atlantic/Reykjavik","India":"Asia/Kolkata","Indonesia":"Asia/Jakarta","Iran":"Asia/Tehran","Iraq":"Asia/Baghdad",
+  "Ireland":"Europe/Dublin","Israel":"Asia/Jerusalem","Italy":"Europe/Rome","Ivory Coast":"Africa/Abidjan","Jamaica":"America/Jamaica",
+  "Japan":"Asia/Tokyo","Jordan":"Asia/Amman","Kazakhstan":"Asia/Almaty","Kenya":"Africa/Nairobi","Kuwait":"Asia/Kuwait",
+  "Kyrgyzstan":"Asia/Bishkek","Laos":"Asia/Vientiane","Latvia":"Europe/Riga","Lebanon":"Asia/Beirut","Libya":"Africa/Tripoli",
+  "Lithuania":"Europe/Vilnius","Luxembourg":"Europe/Luxembourg","Macau":"Asia/Macau","Madagascar":"Indian/Antananarivo","Malaysia":"Asia/Kuala_Lumpur",
+  "Maldives":"Indian/Maldives","Malta":"Europe/Malta","Mauritius":"Indian/Mauritius","Mexico":"America/Mexico_City","Moldova":"Europe/Chisinau",
+  "Monaco":"Europe/Monaco","Mongolia":"Asia/Ulaanbaatar","Montenegro":"Europe/Podgorica","Morocco":"Africa/Casablanca","Mozambique":"Africa/Maputo",
+  "Myanmar":"Asia/Yangon","Nepal":"Asia/Kathmandu","Netherlands":"Europe/Amsterdam","New Zealand":"Pacific/Auckland","Nicaragua":"America/Managua",
+  "Nigeria":"Africa/Lagos","North Macedonia":"Europe/Skopje","Norway":"Europe/Oslo","Oman":"Asia/Muscat","Pakistan":"Asia/Karachi",
+  "Panama":"America/Panama","Paraguay":"America/Asuncion","Peru":"America/Lima","Philippines":"Asia/Manila","Poland":"Europe/Warsaw",
+  "Portugal":"Europe/Lisbon","Qatar":"Asia/Qatar","Romania":"Europe/Bucharest","Russia":"Europe/Moscow","Rwanda":"Africa/Kigali",
+  "Saudi Arabia":"Asia/Riyadh","Senegal":"Africa/Dakar","Serbia":"Europe/Belgrade","Singapore":"Asia/Singapore","Slovakia":"Europe/Bratislava",
+  "Slovenia":"Europe/Ljubljana","South Africa":"Africa/Johannesburg","South Korea":"Asia/Seoul","Spain":"Europe/Madrid","Sri Lanka":"Asia/Colombo",
+  "Sweden":"Europe/Stockholm","Switzerland":"Europe/Zurich","Syria":"Asia/Damascus","Taiwan":"Asia/Taipei","Tanzania":"Africa/Dar_es_Salaam",
+  "Thailand":"Asia/Bangkok","Trinidad and Tobago":"America/Port_of_Spain","Tunisia":"Africa/Tunis","Turkey":"Europe/Istanbul","Uganda":"Africa/Kampala",
+  "Ukraine":"Europe/Kiev","United Arab Emirates":"Asia/Dubai","United Kingdom":"Europe/London","United States":"America/New_York","Uruguay":"America/Montevideo",
+  "Uzbekistan":"Asia/Tashkent","Venezuela":"America/Caracas","Vietnam":"Asia/Ho_Chi_Minh","Yemen":"Asia/Aden","Zambia":"Africa/Lusaka","Zimbabwe":"Africa/Harare"
+};
+const COUNTRY_LIST = Object.keys(COUNTRY_TZ).sort();
+const ALL_TZ = (typeof Intl!=="undefined" && Intl.supportedValuesOf) ? Intl.supportedValuesOf("timeZone") : TZ_LIST;
+function useClock(ms=1000){ const [now,setNow]=useState(()=>new Date()); useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),ms); return ()=>clearInterval(id); },[ms]); return now; }
+function localTime(now, tz){ if(!tz) return null; try{ return new Intl.DateTimeFormat('en-US',{ timeZone:tz, hour:'numeric', minute:'2-digit', hour12:true }).format(now); }catch(e){ return null; } }
+function followState(d){
+  if(!d) return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dt=new Date(d+"T00:00:00"); const diff=Math.round((dt-today)/86400000);
+  if(diff<0) return {label:"Overdue", color:"#DC2626"};
+  if(diff===0) return {label:"Today", color:"#D97706"};
+  if(diff<=3) return {label:`In ${diff}d`, color:"#D97706"};
+  return {label:fmtDate(d), color:"#5E6B64"};
+}
+function ClientsModule({ db }){
+  const now=useClock(1000);
+  const [q,setQ]=useState(""); const [open,setOpen]=useState(null); const [editing,setEditing]=useState(null);
+  const items=db.clients.filter(c=> !q.trim() || [c.name,c.email,c.country,c.phone].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Clients", subtitle: "Communication & follow-ups"  ,
+        actions: React.createElement('button', { className: "btn-primary", onClick: ()=>setEditing({}),}, "Add client" ),} )
+      , React.createElement('div', { className: "mb-4 flex items-center gap-2"   ,}
+        , React.createElement('input', { className: "inp max-w-xs" , placeholder: "Search clients…" , value: q, onChange: e=>setQ(e.target.value),} )
+        , React.createElement('span', { className: "ml-auto font-mono text-xs text-muted"   ,}, items.length)
+      )
+      , items.length===0 ? React.createElement(Empty, null, "No clients yet. Add your first client."      ) :
+        React.createElement('div', { className: "card overflow-hidden" ,}
+          , React.createElement('div', { className: "overflow-x-auto",}
+            , React.createElement('table', { className: "w-full text-sm" ,}
+              , React.createElement('thead', { className: "border-b border-line bg-paper/70 text-left text-[11px] uppercase tracking-wide text-muted"       ,}
+                , React.createElement('tr', null, React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Client"), React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Local time" ), React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Country"), React.createElement('th', { className: "px-5 py-3 font-semibold"  ,}, "Next follow-up" ))
+              )
+              , React.createElement('tbody', null
+                , items.map(c=>{
+                  const lt=localTime(now,c.timezone); const fs=followState(c.next_follow_up);
+                  return (
+                    React.createElement('tr', { key: c.id, onClick: ()=>setOpen(c), className: "cursor-pointer border-t border-line/70 hover:bg-paper/60"   ,}
+                      , React.createElement('td', { className: "px-5 py-3" ,}, React.createElement('div', { className: "flex items-center gap-2.5"  ,}, React.createElement(Avatar, { name: c.name, size: 32,}), React.createElement('div', { className: "min-w-0",}, React.createElement('div', { className: "truncate font-semibold text-ink"  ,}, c.name), c.email&&React.createElement('div', { className: "truncate text-xs text-muted"  ,}, c.email))))
+                      , React.createElement('td', { className: "px-5 py-3 font-mono text-ink"   ,}, lt||"—", " " , c.timezone&&React.createElement('span', { className: "text-[11px] text-muted" ,}, c.timezone.split('/').pop().replace('_',' ')))
+                      , React.createElement('td', { className: "px-5 py-3 text-muted"  ,}, c.country||"—")
+                      , React.createElement('td', { className: "px-5 py-3" ,}, fs? React.createElement('span', { className: "chip", style: {background:hexA(fs.color,0.14),color:fs.color},}, fs.label) : React.createElement('span', { className: "text-muted",}, "—"))
+                    )
+                  );
+                })
+              )
+            )
+          )
+        )
+      , open && React.createElement(ClientDetail, { c: open, db: db, now: now, onClose: ()=>setOpen(null), onEdit: ()=>{ const cur=open; setOpen(null); setEditing(cur); },} )
+      , editing && React.createElement(ClientEdit, { c: editing, db: db, onClose: ()=>setEditing(null),} )
+    )
+  );
+}
+function ClientDetail({ c, db, now, onClose, onEdit }){
+  const lt=localTime(now,c.timezone); const fs=followState(c.next_follow_up);
+  return (
+    React.createElement(Modal, { open: true, onClose: onClose, title: c.name, subtitle: c.country||"",
+      footer: React.createElement(React.Fragment, null, React.createElement('button', { className: "btn-danger mr-auto" , onClick: async()=>{ if(confirm("Delete this client?")){ await db.deleteClient(c.id); onClose(); } },}, "Delete"), React.createElement('button', { className: "btn-ghost", onClick: onClose,}, "Close"), React.createElement('button', { className: "btn-primary", onClick: onEdit,}, "Edit")),}
+      , React.createElement('div', { className: "mb-4 flex items-center justify-between rounded-xl bg-brand p-5 text-white"       ,}
+        , React.createElement('div', null, React.createElement('div', { className: "text-[11px] uppercase tracking-wide text-white/70"   ,}, "Local time" ), React.createElement('div', { className: "font-mono text-3xl font-semibold"  ,}, lt||"—"))
+        , React.createElement('div', { className: "text-right text-sm text-white/80"  ,}, c.timezone||"no timezone set")
+      )
+      , React.createElement('div', { className: "rounded-xl border border-line bg-white px-4"    ,}
+        , React.createElement(ReadOnlyRow, { label: "Email", value: c.email? React.createElement('a', { className: "text-brand underline" , href: `mailto:${c.email}`,}, c.email):null,} )
+        , React.createElement(ReadOnlyRow, { label: "Phone", value: c.phone? React.createElement('a', { className: "text-brand underline" , href: `tel:${c.phone}`,}, c.phone):null,} )
+        , React.createElement(ReadOnlyRow, { label: "Country", value: c.country,} )
+        , React.createElement(ReadOnlyRow, { label: "Timezone", value: c.timezone,} )
+        , React.createElement(ReadOnlyRow, { label: "Next follow-up" , value: fs? React.createElement('span', { className: "chip", style: {background:hexA(fs.color,0.14),color:fs.color},}, fs.label):null,} )
+      )
+      , c.notes && React.createElement('div', { className: "mt-4",}, React.createElement('p', { className: "lbl",}, "Notes"), React.createElement('p', { className: "whitespace-pre-wrap rounded-lg border border-line bg-white p-3 text-sm text-ink"       ,}, c.notes))
+    )
+  );
+}
+function ClientEdit({ c, db, onClose }){
+  const isNew=!c.id;
+  const [d,setD]=useState({ name:"", phone:"", email:"", country:"", timezone:"", next_follow_up:"", notes:"", ...c });
+  const set=(k,v)=>setD(p=>({...p,[k]:v}));
+  const [busy,setBusy]=useState(false);
+  const onCountry=(v)=>setD(p=>({ ...p, country:v, timezone: p.timezone || COUNTRY_TZ[v.trim()] || "" }));
+  const save=async()=>{ setBusy(true); await db.saveClient(c.id,{ name:d.name.trim(), phone:d.phone||null, email:d.email||null, country:d.country||null, timezone:d.timezone||null, next_follow_up:d.next_follow_up||null, notes:d.notes||null }); setBusy(false); onClose(); };
+  return (
+    React.createElement(Modal, { open: true, onClose: onClose, title: isNew?"Add client":`Edit ${d.name||"client"}`,
+      footer: React.createElement(React.Fragment, null, React.createElement('button', { className: "btn-ghost", onClick: onClose,}, "Cancel"), React.createElement('button', { className: "btn-primary", disabled: busy||!d.name.trim(), onClick: save,}, busy?"Saving…":"Save")),}
+      , React.createElement('div', { className: "grid gap-3 sm:grid-cols-2"  ,}
+        , React.createElement(Field, { label: "Name",}, React.createElement('input', { className: "inp", value: d.name, onChange: e=>set("name",e.target.value),} ))
+        , React.createElement(Field, { label: "Email",}, React.createElement('input', { className: "inp", value: d.email||"", onChange: e=>set("email",e.target.value),} ))
+        , React.createElement(Field, { label: "Phone",}, React.createElement('input', { className: "inp", value: d.phone||"", onChange: e=>set("phone",e.target.value),} ))
+        , React.createElement(Field, { label: "Country", hint: "Picks a timezone automatically"   ,}, React.createElement('input', { className: "inp", list: "country-list", value: d.country||"", onChange: e=>onCountry(e.target.value),} ))
+        , React.createElement(Field, { label: "Timezone (IANA)" ,}, React.createElement('input', { className: "inp", list: "tz-list", value: d.timezone||"", onChange: e=>set("timezone",e.target.value), placeholder: "Asia/Kolkata",} ))
+        , React.createElement(Field, { label: "Next follow-up" ,}, React.createElement('input', { className: "inp", type: "date", value: d.next_follow_up||"", onChange: e=>set("next_follow_up",e.target.value),} ))
+      )
+      , React.createElement('div', { className: "mt-3",}, React.createElement(Field, { label: "Notes",}, React.createElement('textarea', { className: "inp", rows: 3, value: d.notes||"", onChange: e=>set("notes",e.target.value),} )))
+      , React.createElement('datalist', { id: "tz-list",}, ALL_TZ.map(t=>React.createElement('option', { key: t, value: t,} )))
+      , React.createElement('datalist', { id: "country-list",}, COUNTRY_LIST.map(c=>React.createElement('option', { key: c, value: c,} )))
+    )
+  );
+}
+
+/* ============================ Dashboard ============================ */
+function Dashboard({ db, go, onStageClick }){
+  const counts = STAGES.reduce((m,s)=>{ m[s]=db.freelancers.filter(f=>f.stage===s).length; return m; },{});
+  const owesTest = db.freelancers.filter(f=>f.stage==="Test Offered");
+  const awaitingReview = db.freelancers.filter(f=>f.stage==="Test Submitted");
+  const activeProjects = db.projects.filter(p=>p.status==="Active");
+  const inPipeline = db.freelancers.filter(f=>PROSPECT_STAGES.includes(f.stage)).length;
+  const kpis = [
+    ["Total freelancers", db.freelancers.length, IconUsers],
+    ["In pipeline", inPipeline, IconPipeline],
+    ["Hired", counts["Hired"]||0, IconGrid],
+    ["Active projects", activeProjects.length, IconFolder],
+  ];
+  return (
+    React.createElement('div', { className: "space-y-6",}
+      , React.createElement(PageHeader, { title: "Dashboard", subtitle: "Pipeline health at a glance"    ,
+        actions: React.createElement('button', { className: "btn-ghost", onClick: ()=>go("pipeline"),}, "Open pipeline" ),} )
+
+      , React.createElement('div', { className: "grid grid-cols-2 gap-4 lg:grid-cols-4"   ,}
+        , kpis.map(([label,val,Icon])=>(
+          React.createElement('div', { key: label, className: "card p-5" ,}
+            , React.createElement('div', { className: "flex items-center justify-between"  ,}
+              , React.createElement('span', { className: "text-xs font-semibold uppercase tracking-wide text-muted"    ,}, label)
+              , React.createElement('span', { className: "flex h-8 w-8 items-center justify-center rounded-lg bg-brand-soft text-brand"       ,}, React.createElement(Icon, { className: "h-4 w-4" ,} ))
+            )
+            , React.createElement('div', { className: "mt-3 font-mono text-3xl font-semibold text-ink"    ,}, val)
+          )
+        ))
+      )
+
+      , React.createElement('div', { className: "card",}
+        , React.createElement('div', { className: "flex items-center justify-between border-b border-line px-5 py-4"      ,}
+          , React.createElement('h2', { className: "font-bold text-ink" ,}, "Pipeline by stage"  )
+          , React.createElement('span', { className: "text-xs text-muted" ,}, "Click a stage to open it filtered"      )
+        )
+        , React.createElement('div', { className: "grid grid-cols-2 gap-3 p-5 sm:grid-cols-3 lg:grid-cols-4"     ,}
+          , STAGES.map(s=>(
+            React.createElement('button', { key: s, onClick: ()=>onStageClick(s),
+              className: "rounded-xl border border-line/70 p-4 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"        ,}
+              , React.createElement('span', { className: "inline-flex items-center gap-1.5 text-xs font-medium text-muted"     ,}
+                , React.createElement('span', { className: "h-2 w-2 rounded-full"  , style: {background:STAGE_COLOR[s]},} ), s
+              )
+              , React.createElement('div', { className: "mt-2 font-mono text-2xl font-semibold text-ink"    ,}, counts[s])
+            )
+          ))
+        )
+      )
+
+      , React.createElement('div', { className: "grid gap-5 lg:grid-cols-3"  ,}
+        , React.createElement(DashList, { title: "Owes a design test"   , hint: "Stage · Test Offered"   , items: owesTest, db: db, onOpen: ()=>onStageClick("Test Offered"), accent: "#F59E0B",} )
+        , React.createElement(DashList, { title: "Awaiting review" , hint: "Stage · Test Submitted"   , items: awaitingReview, db: db, onOpen: ()=>onStageClick("Test Submitted"), accent: "#8B5CF6",} )
+        , React.createElement('div', { className: "card flex flex-col"  ,}
+          , React.createElement('div', { className: "flex items-center justify-between border-b border-line px-5 py-4"      ,}
+            , React.createElement('h3', { className: "font-bold text-ink" ,}, "Active projects" )
+            , React.createElement('button', { className: "text-xs font-medium text-brand hover:underline"   , onClick: ()=>go("projects"),}, "View all" )
+          )
+          , React.createElement('div', { className: "p-4",}
+            , activeProjects.length===0 ? React.createElement('p', { className: "px-1 py-2 text-sm text-muted"   ,}, "None active." ) :
+              React.createElement('ul', { className: "space-y-1",}
+                , activeProjects.slice(0,8).map(p=>{
+                  const c = db.assignments.filter(a=>a.project_id===p.id).length;
+                  return React.createElement('li', { key: p.id, className: "flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-paper"       ,}
+                    , React.createElement('span', { className: "truncate font-medium text-ink"  ,}, p.name)
+                    , React.createElement('span', { className: "font-mono text-xs text-muted"  ,}, c, " on roster"  )
+                  );
+                })
+              )
+          )
+        )
+      )
+    )
+  );
+}
+function DashList({ title, hint, items, db, onOpen, accent }){
+  return (
+    React.createElement('div', { className: "card flex flex-col"  ,}
+      , React.createElement('div', { className: "flex items-center justify-between border-b border-line px-5 py-4"      ,}
+        , React.createElement('div', null
+          , React.createElement('h3', { className: "font-bold text-ink" ,}, title)
+          , React.createElement('p', { className: "text-[11px] text-muted" ,}, hint)
+        )
+        , React.createElement('span', { className: "flex h-7 min-w-7 items-center justify-center rounded-full px-2 font-mono text-xs font-semibold"         , style: {background:hexA(accent,0.14), color:accent},}, items.length)
+      )
+      , React.createElement('div', { className: "p-4",}
+        , items.length===0 ? React.createElement('p', { className: "px-1 py-2 text-sm text-muted"   ,}, "Nobody right now."  ) :
+          React.createElement('ul', { className: "space-y-1",}
+            , items.slice(0,8).map(f=>(
+              React.createElement('li', { key: f.id,}
+                , React.createElement('button', { onClick: onOpen, className: "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-paper"        ,}
+                  , React.createElement(Avatar, { name: f.full_name, size: 28,} )
+                  , React.createElement('span', { className: "truncate text-sm font-medium text-ink"   ,}, f.full_name)
+                  , React.createElement(ChecklistPill, { f: f, items: db.checklistItems,} )
+                )
+              )
+            ))
+          )
+      )
+    )
+  );
+}
+
+/* ============================ CSV import ============================ */
+const IMPORT_FIELDS = [
+  ["full_name","Full name"],["email","Email"],["phone","Phone / WhatsApp"],["portfolio_link","Portfolio link"],
+  ["work_areas","Work areas (list)"],["sub_specialties","Sub-specialties (list)"],["hours_per_week","Hours per week"],
+  ["collaboration_type","Collaboration type"],["turnaround_time","Turnaround"],["design_tools","Design tools"],
+  ["ok_with_feedback","OK with feedback (yes/no)"],["can_share_source","Can share source (yes/no)"],
+  ["past_project_types","Past project types"],["best_portfolio_projects","Best portfolio projects"],
+  ["willing_design_test","Willing design test"],["intake_notes","Notes"],
+];
+const guessField = (header) => {
+  const h = header.toLowerCase().replace(/[^a-z]/g,"");
+  const tests = [
+    ["full_name", ["fullname","name"]],["email",["email","mail"]],["phone",["phone","whatsapp","mobile","contact"]],
+    ["portfolio_link",["portfolio","website","link","behance","dribbble"]],["work_areas",["workarea","area","services","skills"]],
+    ["sub_specialties",["subspecial","specialt"]],["hours_per_week",["hour","perweek","availab"]],
+    ["collaboration_type",["collab","engagement","longterm"]],["turnaround_time",["turnaround","delivery"]],
+    ["design_tools",["tool","software","figma"]],["ok_with_feedback",["feedback","revision"]],
+    ["can_share_source",["source","editable","sourcefile"]],["past_project_types",["pasttype","previous","experience"]],
+    ["best_portfolio_projects",["bestproject","threeproject","topproject","portfolioproject"]],
+    ["willing_design_test",["test","trial","task"]],["intake_notes",["note","anythingelse","comment","else"]],
+  ];
+  for(const [field,keys] of tests){ if(keys.some(k=>h.includes(k))) return field; }
+  return "";
+};
+function ImportDialog({ db, onClose }){
+  const [rows,setRows] = useState(null);
+  const [headers,setHeaders] = useState([]);
+  const [map,setMap] = useState({});
+  const [busy,setBusy] = useState(false);
+  const [done,setDone] = useState(0);
+
+  const onFile = (file) => {
+    window.Papa.parse(file, { header:true, skipEmptyLines:true, complete:(res)=>{
+      const hs = res.meta.fields || [];
+      setHeaders(hs); setRows(res.data);
+      const m = {}; hs.forEach(h=> m[h]=guessField(h)); setMap(m);
+    }});
+  };
+  const doImport = async () => {
+    setBusy(true);
+    const used = Object.entries(map).filter(([,f])=>f);
+    const records = rows.map(r=>{
+      const rec = { stage:"New", source:"Tally", work_areas:[], sub_specialties:[], tags:[] };
+      for(const [h,f] of used){
+        const v = (_nullishCoalesce(r[h], () => (""))).toString().trim();
+        if(v==="") continue;
+        if(f==="work_areas"||f==="sub_specialties") rec[f]=splitList(v);
+        else if(f==="ok_with_feedback"||f==="can_share_source") rec[f]=/^(y|yes|true|1)/i.test(v);
+        else rec[f]=v;
+      }
+      return rec;
+    }).filter(r=>r.full_name);
+    let n=0;
+    for(const rec of records){ await db.saveFreelancer(null, rec); n++; setDone(n); }
+    setBusy(false); onClose();
+  };
+
+  return (
+    React.createElement(Modal, { open: true, onClose: onClose, wide: true, title: "Import from CSV"  , subtitle: "Tally export → New prospects"    ,
+      footer: React.createElement(React.Fragment, null, React.createElement('button', { className: "btn-ghost", onClick: onClose,}, "Cancel")
+        , rows && React.createElement('button', { className: "btn-primary", disabled: busy, onClick: doImport,}, busy?`Importing ${done}/${rows.length}…`:`Import ${rows.filter(r=>r).length} rows`)),}
+      , !rows ? (
+        React.createElement('div', null
+          , React.createElement('p', { className: "mb-3 text-sm text-muted"  ,}, "Export your Tally responses as CSV, then choose the file. You'll be able to check the column mapping before importing."                   )
+          , React.createElement('input', { type: "file", accept: ".csv,text/csv", className: "inp", onChange: e=>{ const f=_optionalChain([e, 'access', _4 => _4.target, 'access', _5 => _5.files, 'optionalAccess', _6 => _6[0]]); if(f) onFile(f); },} )
+        )
+      ) : (
+        React.createElement('div', null
+          , React.createElement('p', { className: "mb-3 text-sm text-muted"  ,}, "Map each CSV column to a field. Set to "         , React.createElement('em', null, "Ignore"), " to skip. Rows without a full name are skipped. All imported records start in "               , React.createElement('strong', null, "New"), ".")
+          , React.createElement('div', { className: "card divide-y divide-line"  ,}
+            , headers.map(h=>(
+              React.createElement('div', { key: h, className: "flex items-center gap-3 px-3 py-2"    ,}
+                , React.createElement('span', { className: "w-1/2 truncate text-sm text-ink"   , title: h,}, h)
+                , React.createElement('span', { className: "text-muted",}, "→")
+                , React.createElement('select', { className: "inp", value: map[h]||"", onChange: e=>setMap(m=>({...m,[h]:e.target.value})),}
+                  , React.createElement('option', { value: "",}, "Ignore")
+                  , IMPORT_FIELDS.map(([k,lbl])=>React.createElement('option', { key: k, value: k,}, lbl))
+                )
+              )
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ============================ Settings ============================ */
+function Settings({ db }){
+  const [wa,setWa] = useState("");
+  const [subWA,setSubWA] = useState(_optionalChain([db, 'access', _7 => _7.workAreas, 'access', _8 => _8[0], 'optionalAccess', _9 => _9.name])||"");
+  const [subName,setSubName] = useState("");
+  const [ci,setCi] = useState("");
+  return (
+    React.createElement('div', null
+      , React.createElement(PageHeader, { title: "Settings",} )
+      , React.createElement('div', { className: "grid gap-5 lg:grid-cols-3"  ,}
+      , React.createElement('div', { className: "card p-4" ,}
+        , React.createElement('h3', { className: "mb-3 text-sm font-bold text-ink"   ,}, "Work areas" )
+        , React.createElement('div', { className: "mb-3 flex flex-wrap gap-1.5"   ,}
+          , db.workAreas.map(w=>(
+            React.createElement('span', { key: w.id, className: "chip bg-paper text-ink"  ,}, w.name
+              , React.createElement('button', { className: "text-muted hover:text-red-600" , onClick: ()=>db.removeOption("work_areas", w.id),}, "✕"))
+          ))
+        )
+        , React.createElement('div', { className: "flex gap-2" ,}
+          , React.createElement('input', { className: "inp", placeholder: "Add work area"  , value: wa, onChange: e=>setWa(e.target.value), onKeyDown: e=>e.key==="Enter"&&wa.trim()&&(db.addWorkArea(wa.trim()),setWa("")),} )
+          , React.createElement('button', { className: "btn-soft shrink-0" , disabled: !wa.trim(), onClick: ()=>{db.addWorkArea(wa.trim());setWa("");},}, "Add")
+        )
+      )
+
+      , React.createElement('div', { className: "card p-4" ,}
+        , React.createElement('h3', { className: "mb-3 text-sm font-bold text-ink"   ,}, "Sub-specialties")
+        , React.createElement('div', { className: "mb-3 space-y-2" ,}
+          , db.workAreas.map(w=>{
+            const subs = db.subSpecialties.filter(s=>s.work_area===w.name);
+            if(!subs.length) return null;
+            return (
+              React.createElement('div', { key: w.id,}
+                , React.createElement('p', { className: "text-[11px] font-semibold uppercase text-muted"   ,}, w.name)
+                , React.createElement('div', { className: "mt-1 flex flex-wrap gap-1.5"   ,}
+                  , subs.map(s=>React.createElement('span', { key: s.id, className: "chip bg-paper text-ink"  ,}, s.name
+                    , React.createElement('button', { className: "text-muted hover:text-red-600" , onClick: ()=>db.removeOption("sub_specialties", s.id),}, "✕")))
+                )
+              )
+            );
+          })
+        )
+        , React.createElement('div', { className: "flex gap-2" ,}
+          , React.createElement('select', { className: "inp max-w-[40%]" , value: subWA, onChange: e=>setSubWA(e.target.value),}
+            , db.workAreas.map(w=>React.createElement('option', { key: w.id,}, w.name))
+          )
+          , React.createElement('input', { className: "inp", placeholder: "New sub-specialty" , value: subName, onChange: e=>setSubName(e.target.value), onKeyDown: e=>e.key==="Enter"&&subName.trim()&&subWA&&(db.addSubSpecialty(subWA,subName.trim()),setSubName("")),} )
+          , React.createElement('button', { className: "btn-soft shrink-0" , disabled: !subName.trim()||!subWA, onClick: ()=>{db.addSubSpecialty(subWA,subName.trim());setSubName("");},}, "Add")
+        )
+      )
+
+      , React.createElement('div', { className: "card p-4" ,}
+        , React.createElement('h3', { className: "mb-3 text-sm font-bold text-ink"   ,}, "Vetting checklist items"  )
+        , React.createElement('div', { className: "mb-3 space-y-1.5" ,}
+          , db.checklistItems.map(i=>(
+            React.createElement('div', { key: i.id, className: "flex items-center justify-between rounded-lg bg-paper px-3 py-2 text-sm text-ink"        ,}
+              , i.label
+              , React.createElement('button', { className: "text-muted hover:text-red-600" , onClick: ()=>db.removeOption("checklist_items", i.id),}, "✕")
+            )
+          ))
+        )
+        , React.createElement('div', { className: "flex gap-2" ,}
+          , React.createElement('input', { className: "inp", placeholder: "Add checklist item"  , value: ci, onChange: e=>setCi(e.target.value), onKeyDown: e=>e.key==="Enter"&&ci.trim()&&(db.addChecklistItem(ci.trim()),setCi("")),} )
+          , React.createElement('button', { className: "btn-soft shrink-0" , disabled: !ci.trim(), onClick: ()=>{db.addChecklistItem(ci.trim());setCi("");},}, "Add")
+        )
+      )
+    )
+    )
+  );
+}
+
+/* ============================ Misc ============================ */
+function Empty({ children }){
+  return React.createElement('div', { className: "card flex items-center justify-center p-10 text-sm text-muted"      ,}, children);
+}
+
+/* ============================ Data layer hook ============================ */
+function useDB(){
+  const [freelancers,setF] = useState([]);
+  const [projects,setP] = useState([]);
+  const [assignments,setA] = useState([]);
+  const [comments,setC] = useState([]);
+  const [workAreas,setWA] = useState([]);
+  const [subSpecialties,setSS] = useState([]);
+  const [checklistItems,setCI] = useState([]);
+  const [tools,setT] = useState([]);
+  const [clients,setCL] = useState([]);
+  const [ready,setReady] = useState(false);
+  const [error,setError] = useState("");
+
+  const loadF  = useCallback(async()=>{ const {data,error}=await sb.from("freelancers").select("*").order("created_at",{ascending:false}); if(error)setError(error.message); else setF(data||[]); },[]);
+  const loadP  = useCallback(async()=>{ const {data}=await sb.from("projects").select("*").order("created_at",{ascending:false}); setP(data||[]); },[]);
+  const loadA  = useCallback(async()=>{ const {data}=await sb.from("project_assignments").select("*").order("created_at"); setA(data||[]); },[]);
+  const loadC  = useCallback(async()=>{ const {data}=await sb.from("comments").select("*").order("created_at"); setC(data||[]); },[]);
+  const loadT  = useCallback(async()=>{ const {data}=await sb.from("tools").select("*").order("created_at",{ascending:false}); setT(data||[]); },[]);
+  const loadCL = useCallback(async()=>{ const {data}=await sb.from("clients").select("*").order("created_at",{ascending:false}); setCL(data||[]); },[]);
+  const loadOpt= useCallback(async()=>{
+    const [w,s,c] = await Promise.all([
+      sb.from("work_areas").select("*").order("sort_order").order("name"),
+      sb.from("sub_specialties").select("*").order("sort_order").order("name"),
+      sb.from("checklist_items").select("*").order("sort_order").order("id"),
+    ]);
+    setWA(w.data||[]); setSS(s.data||[]); setCI(c.data||[]);
+  },[]);
+
+  const loadAll = useCallback(async()=>{
+    await Promise.all([loadF(),loadP(),loadA(),loadC(),loadOpt(),loadT(),loadCL()]);
+    setReady(true);
+  },[loadF,loadP,loadA,loadC,loadOpt,loadT,loadCL]);
+
+  useEffect(()=>{ loadAll(); },[loadAll]);
+
+  const api = useMemo(()=>({
+    freelancers, projects, assignments, comments, workAreas, subSpecialties, checklistItems, tools, clients, ready, error,
+
+    saveFreelancer: async (id, payload) => {
+      if(id){ const {data}=await sb.from("freelancers").update(payload).eq("id",id).select().single(); }
+      else  { const {data}=await sb.from("freelancers").insert(payload).select().single(); }
+      await loadF(); return true;
+    },
+    deleteFreelancer: async (id) => { await sb.from("freelancers").delete().eq("id",id); await Promise.all([loadF(),loadA(),loadC()]); },
+    setStage: async (id, stage) => {
+      setF(prev=>prev.map(f=>f.id===id?{...f,stage}:f)); // optimistic
+      await sb.from("freelancers").update({stage}).eq("id",id); loadF();
+    },
+
+    createProject: async (payload) => { const {data}=await sb.from("projects").insert(payload).select().single(); await loadP(); return data; },
+    saveProject: async (id, payload) => { if(id) await sb.from("projects").update(payload).eq("id",id); else await sb.from("projects").insert(payload); await loadP(); },
+    deleteProject: async (id) => { await sb.from("projects").delete().eq("id",id); await Promise.all([loadP(),loadA(),loadC()]); },
+
+    assign: async (project_id, freelancer_id, role) => { await sb.from("project_assignments").insert({project_id,freelancer_id,role}); await loadA(); },
+    unassign: async (id) => { await sb.from("project_assignments").delete().eq("id",id); await Promise.all([loadA(),loadC()]); },
+    updateAssignmentRole: async (id, role) => { await sb.from("project_assignments").update({role}).eq("id",id); await loadA(); },
+
+    addComment: async (payload) => { await sb.from("comments").insert(payload); await loadC(); },
+    deleteComment: async (id) => { await sb.from("comments").delete().eq("id",id); await loadC(); },
+
+    addWorkArea: async (name) => { await sb.from("work_areas").insert({name}); await loadOpt(); },
+    addSubSpecialty: async (work_area,name) => { await sb.from("sub_specialties").insert({work_area,name}); await loadOpt(); },
+    addChecklistItem: async (label) => { await sb.from("checklist_items").insert({label}); await loadOpt(); },
+    removeOption: async (table,id) => { await sb.from(table).delete().eq("id",id); await loadOpt(); },
+
+    saveTool:   async (id,payload) => { if(id) await sb.from("tools").update(payload).eq("id",id); else await sb.from("tools").insert(payload); await loadT(); },
+    deleteTool: async (id) => { await sb.from("tools").delete().eq("id",id); await loadT(); },
+
+    saveClient:   async (id,payload) => { if(id) await sb.from("clients").update(payload).eq("id",id); else await sb.from("clients").insert(payload); await loadCL(); },
+    deleteClient: async (id) => { await sb.from("clients").delete().eq("id",id); await loadCL(); },
+
+    reload: loadAll,
+  }),[freelancers,projects,assignments,comments,workAreas,subSpecialties,checklistItems,tools,clients,ready,error,loadF,loadP,loadA,loadC,loadOpt,loadT,loadCL,loadAll]);
+
+  return api;
+}
+
+/* ============================ Export ============================ */
+function downloadFile(name, text, type){
+  const blob = new Blob([text], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=name; a.click();
+  URL.revokeObjectURL(url);
+}
+function exportCSV(freelancers){
+  const cols = ["full_name","email","phone","portfolio_link","work_areas","sub_specialties","hours_per_week","collaboration_type","turnaround_time","design_tools","ok_with_feedback","can_share_source","willing_design_test","stage","quoted_rate","currency","pay_type","rating","tags","source"];
+  const esc = (v)=>{ if(v==null)return ""; const s=Array.isArray(v)?v.join("; "):String(v); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
+  const lines = [cols.join(",")].concat(freelancers.map(f=>cols.map(c=>esc(f[c])).join(",")));
+  downloadFile(`corivance-pipeline-${new Date().toISOString().slice(0,10)}.csv`, lines.join("\n"), "text/csv");
+}
+
+/* ============================ Top navigation & icons ============================ */
+const Ico = ({ children, className }) => (
+  React.createElement('svg', { className: className, viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor",
+    strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round", 'aria-hidden': "true",}, children)
+);
+const IconGrid     = (p)=>React.createElement(Ico, { ...p,}, React.createElement('rect', { x: "3", y: "3", width: "7", height: "7", rx: "1.5",}), React.createElement('rect', { x: "14", y: "3", width: "7", height: "7", rx: "1.5",}), React.createElement('rect', { x: "3", y: "14", width: "7", height: "7", rx: "1.5",}), React.createElement('rect', { x: "14", y: "14", width: "7", height: "7", rx: "1.5",}));
+const IconPipeline = (p)=>React.createElement(Ico, { ...p,}, React.createElement('rect', { x: "3", y: "4", width: "5", height: "16", rx: "1.4",}), React.createElement('rect', { x: "10", y: "4", width: "5", height: "10", rx: "1.4",}), React.createElement('rect', { x: "17", y: "4", width: "4", height: "13", rx: "1.4",}));
+const IconUsers    = (p)=>React.createElement(Ico, { ...p,}, React.createElement('circle', { cx: "9", cy: "8", r: "3.1",}), React.createElement('path', { d: "M3.6 20a5.4 5.4 0 0 1 10.8 0"       ,}), React.createElement('path', { d: "M16.2 5.6a3 3 0 0 1 0 5.8"       ,}), React.createElement('path', { d: "M17.8 20a5.2 5.2 0 0 0-2.1-4.2"     ,}));
+const IconFolder   = (p)=>React.createElement(Ico, { ...p,}, React.createElement('path', { d: "M3 7a2 2 0 0 1 2-2h3.2a2 2 0 0 1 1.5.7L11 7h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"                           ,}));
+const IconSettings = (p)=>React.createElement(Ico, { ...p,}, React.createElement('path', { d: "M4 6h16M4 12h16M4 18h16"   ,}), React.createElement('circle', { cx: "9", cy: "6", r: "2", fill: "currentColor", stroke: "none",}), React.createElement('circle', { cx: "15", cy: "12", r: "2", fill: "currentColor", stroke: "none",}), React.createElement('circle', { cx: "8", cy: "18", r: "2", fill: "currentColor", stroke: "none",}));
+const IconWrench   = (p)=>React.createElement(Ico, { ...p,}, React.createElement('path', { d: "M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2 2.5-2.5Z"                ,}));
+const IconBriefcase= (p)=>React.createElement(Ico, { ...p,}, React.createElement('rect', { x: "3", y: "7", width: "18", height: "13", rx: "2",}), React.createElement('path', { d: "M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"            ,}), React.createElement('path', { d: "M3 12h18" ,}));
+
+const SIDEBAR = [
+  { label:"Talent",   items:[["dashboard","Dashboard",IconGrid],["pipeline","Pipeline",IconPipeline],["freelancers","Freelancers",IconUsers],["projects","Projects",IconFolder]] },
+  { label:"Tools",    items:[["tools","Tool Index",IconWrench]] },
+  { label:"Clients",  items:[["clients","Clients",IconBriefcase]] },
+  { label:null,       items:[["settings","Settings",IconSettings]] },
+];
+const SECTION_ICON = { dashboard:IconGrid, pipeline:IconPipeline, freelancers:IconUsers, projects:IconFolder, tools:IconWrench, clients:IconBriefcase, settings:IconSettings };
+
+function Sidebar({ tab, go, open, setOpen, session }){
+  return (
+    React.createElement(React.Fragment, null
+      , React.createElement('div', { onClick: ()=>setOpen(false), className: cx("fixed inset-0 z-30 bg-ink/40 transition-opacity lg:hidden", open?"opacity-100":"pointer-events-none opacity-0"), 'aria-hidden': "true",} )
+      , React.createElement('aside', { className: cx("fixed z-40 flex h-[100dvh] w-64 shrink-0 flex-col border-r border-line bg-white transition-transform duration-200 lg:static lg:translate-x-0", open?"translate-x-0":"-translate-x-full"),}
+        , React.createElement('div', { className: "flex items-center justify-between gap-2 px-5 py-4"     ,}
+          , React.createElement('button', { onClick: ()=>go("dashboard"), className: "flex items-center gap-2.5"  ,}
+            , React.createElement('img', { src: ICON_URI, alt: "", className: "h-8 w-8" , draggable: "false",} )
+            , React.createElement('span', { className: "text-[15px] font-bold tracking-tight text-ink"   ,}, "Corivance " , React.createElement('span', { className: "text-brand",}, "Sarvam"))
+          )
+          , React.createElement('button', { className: "rounded-lg p-1 text-muted hover:bg-paper lg:hidden"    , onClick: ()=>setOpen(false), 'aria-label': "Close menu" ,}, "✕")
+        )
+        , React.createElement('nav', { className: "flex-1 space-y-5 overflow-y-auto px-3 pb-4"    ,}
+          , SIDEBAR.map((group,gi)=>(
+            React.createElement('div', { key: gi,}
+              , group.label && React.createElement('p', { className: "px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted/70"      ,}, group.label)
+              , React.createElement('div', { className: "space-y-0.5",}
+                , group.items.map(([k,label,Icon])=>{
+                  const active = tab===k;
+                  return (
+                    React.createElement('button', { key: k, onClick: ()=>go(k),
+                      className: cx("navlink", active ? "bg-accent text-brand" : "text-muted hover:bg-paper hover:text-ink"),}
+                      , React.createElement(Icon, { className: cx("h-[18px] w-[18px] shrink-0", active?"text-brand":"text-muted"),} ), React.createElement('span', null, label)
+                    )
+                  );
+                })
+              )
+            )
+          ))
+        )
+        , React.createElement('div', { className: "border-t border-line p-3"  ,}
+          , React.createElement('div', { className: "flex items-center gap-2.5 rounded-lg px-2 py-1.5"     ,}
+            , React.createElement('span', { className: "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white"          ,}, (session.user.email||"?")[0].toUpperCase())
+            , React.createElement('span', { className: "min-w-0 flex-1 truncate text-xs text-muted"    ,}, session.user.email)
+            , React.createElement('button', { onClick: ()=>sb.auth.signOut(), title: "Sign out" , className: "rounded-lg p-1.5 text-muted hover:bg-paper hover:text-red-600"    , 'aria-label': "Sign out" ,}
+              , React.createElement('svg', { className: "h-4 w-4" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round",}, React.createElement('path', { d: "M16 17l5-5-5-5" ,}), React.createElement('path', { d: "M21 12H9" ,}), React.createElement('path', { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"          ,}))
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ============================ App shell ============================ */
+function Shell({ session, db }){
+  const [tab,setTab] = useState("dashboard");
+  const [page,setPage] = useState(null);      // {kind:'edit'|'new'|'view', f?}
+  const [importing,setImporting] = useState(false);
+  const [stagePreset,setStagePreset] = useState("");
+  const [sidebarOpen,setSidebarOpen] = useState(false);
+
+  const go = (k)=>{ setPage(null); setTab(k); setSidebarOpen(false); };
+  const openStage = (s)=>{ setPage(null); setStagePreset(s); setTab("pipeline"); };
+  const openEdit = (f)=> setPage({ kind:'edit', f });
+  const openNew  = ()=> setPage({ kind:'new' });
+  const openView = (f)=> setPage({ kind:'view', f });
+  const closePage= ()=> setPage(null);
+
+  const talentActions = !page && ["dashboard","pipeline","freelancers","projects"].includes(tab);
+
+  if(!db.ready) return React.createElement('div', { className: "flex h-[100dvh] items-center justify-center text-sm text-muted"     ,}, "Loading…");
+
+  return (
+    React.createElement('div', { className: "flex h-[100dvh] overflow-hidden"  ,}
+      , React.createElement(Sidebar, { tab: tab, go: go, open: sidebarOpen, setOpen: setSidebarOpen, session: session,} )
+
+      , React.createElement('div', { className: "relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden"     ,}
+        , React.createElement('header', { className: "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-paper/85 px-4 backdrop-blur sm:px-6 lg:px-8"              ,}
+          , React.createElement('button', { className: "rounded-lg border border-line bg-white p-2 text-ink lg:hidden"      , onClick: ()=>setSidebarOpen(true), 'aria-label': "Open menu" ,}
+            , React.createElement('svg', { className: "h-5 w-5" , viewBox: "0 0 24 24"   , fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round",}, React.createElement('path', { d: "M4 6h16M4 12h16M4 18h16"   ,}))
+          )
+          , React.createElement('div', { className: "ml-auto flex items-center gap-2"   ,}
+            , talentActions && React.createElement(React.Fragment, null
+              , React.createElement('button', { className: "btn-ghost hidden sm:inline-flex"  , onClick: ()=>setImporting(true),}, "Import")
+              , React.createElement('button', { className: "btn-ghost hidden sm:inline-flex"  , onClick: ()=>exportCSV(db.freelancers),}, "Export")
+              , React.createElement('button', { className: "btn-primary", onClick: openNew,}, "Add Prospect" )
+            )
+          )
+        )
+
+        , React.createElement('main', { className: "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"      ,}
+          , db.error && React.createElement('div', { className: "mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"      ,}, db.error)
+          , page ? (
+            page.kind==='view'
+              ? React.createElement(FreelancerViewPage, { f: page.f, db: db, onBack: closePage, onEdit: openEdit,} )
+              : React.createElement(FreelancerDetail, { f: page.kind==='new' ? {} : page.f, db: db, onBack: closePage,} )
+          ) : (
+            React.createElement(React.Fragment, null
+              , tab==="dashboard" && React.createElement(Dashboard, { db: db, go: setTab, onStageClick: openStage,} )
+              , tab==="pipeline" && React.createElement(Pipeline, { db: db, onOpen: openEdit, presetStage: stagePreset, clearPreset: ()=>setStagePreset(""),} )
+              , tab==="freelancers" && React.createElement(Freelancers, { db: db, onOpen: openView,} )
+              , tab==="projects" && React.createElement(Projects, { db: db,} )
+              , tab==="tools" && React.createElement(ToolsModule, { db: db,} )
+              , tab==="clients" && React.createElement(ClientsModule, { db: db,} )
+              , tab==="settings" && React.createElement(Settings, { db: db,} )
+            )
+          )
+        )
+      )
+
+      , importing && React.createElement(ImportDialog, { db: db, onClose: ()=>setImporting(false),} )
+    )
+  );
+}
+
+/* ============================ Auth root ============================ */
+function App(){
+  if(!CONFIGURED) return React.createElement(SetupScreen, null );
+  const [session,setSession] = useState(undefined);
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=> setSession(data.session));
+    const { data:sub } = sb.auth.onAuthStateChange((_e, s)=> setSession(s));
+    return ()=> sub.subscription.unsubscribe();
+  },[]);
+
+  if(session===undefined) return React.createElement('div', { className: "flex h-full items-center justify-center text-sm text-muted"     ,}, "Loading…");
+  if(!session) return React.createElement(Login, null );
+  return React.createElement(SignedIn, { session: session,} );
+}
+function SignedIn({ session }){
+  const db = useDB();
+  return React.createElement(Shell, { session: session, db: db,} );
+}
+
+try { const _l=document.createElement("link"); _l.rel="icon"; _l.href=ICON_URI; document.head.appendChild(_l); } catch(e){}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null ));
+
+</script>
+</body>
+</html>
